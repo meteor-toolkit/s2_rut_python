@@ -1,0 +1,2 @@
+include versioneer.py
+include s2_rut_python/_version.py
