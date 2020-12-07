@@ -38,6 +38,9 @@ class S2RutAlgo:
     def eval_cn(self, band_data):
         return (self.a * self.e_sun * self.u_sun * np.cos(np.radians(self.tecta)) / math.pi) * band_data
 
+    def eval_cn_from_radiance(self, band_data):
+        return self.a * band_data
+
     def eval_u_noise(self, cn):
         return 100 * (self.alpha ** 2 + self.beta * cn) ** 0.5 / cn
 
