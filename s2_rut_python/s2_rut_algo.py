@@ -19,24 +19,38 @@ class S2RutAlgo:
 
     def __init__(self):
         # uncertainty values for DS and Abs.cal
-        self.a           = 0.0
-        self.e_sun       = 0.0
-        self.u_sun       = 1.0
-        self.tecta       = 0.0
-        self.quant       = 10000.0
-        self.alpha       = 0.0
-        self.beta        = 0.0
-        self.u_diff_cos  = 0.4  # [%]from 0.13° diffuser planarity/micro as in (AIRBUS 2015). Assumed same for S2A/S2B.
-        self.u_diff_k    = 0.3  # [%] as a conservative residual (AIRBUS 2015). Assumed same for S2A/S2B.
+        self.a = 0.0
+        self.e_sun = 0.0
+        self.u_sun = 1.0
+        self.tecta = 0.0
+        self.quant = 10000.0
+        self.alpha = 0.0
+        self.beta = 0.0
+        self.u_diff_cos = 0.4  # [%]from 0.13° diffuser planarity/micro as in (AIRBUS 2015). Assumed same for S2A/S2B.
+        self.u_diff_k = 0.3  # [%] as a conservative residual (AIRBUS 2015). Assumed same for S2A/S2B.
         self.u_diff_temp = 1.0  # This value is correctly redefined for specific satellite at the S2RutOp.
-        self.u_ADC       = 0.5  # [DN](rectangular distribution, see combination)
-        self.u_gamma     = 0.4
-        self.k           = 1 # This value is correctly redefined for specific satellite at the S2RutOp.
-        self.unc_select  = [True, True, True, True, True, True, True, True, True, True, True,
-                            True]  # list of booleans with user selected uncertainty sources(order as in interface)
+        self.u_ADC = 0.5  # [DN](rectangular distribution, see combination)
+        self.u_gamma = 0.4
+        self.k = 1  # This value is correctly redefined for specific satellite at the S2RutOp.
+        self.unc_select = [
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+        ]  # list of booleans with user selected uncertainty sources(order as in interface)
 
     def eval_cn(self, band_data):
-        return (self.a * self.e_sun * self.u_sun * np.cos(np.radians(self.tecta)) / math.pi) * band_data
+        return (
+            self.a * self.e_sun * self.u_sun * np.cos(np.radians(self.tecta)) / math.pi
+        ) * band_data
 
     def eval_cn_from_radiance(self, band_data):
         return self.a * band_data
@@ -97,12 +111,16 @@ class S2RutAlgo:
             self.u_stray_sys = 0
 
         if self.unc_select[2]:
-            self.u_stray_rand = rad_conf.u_stray_rand_all[spacecraft][band_id]  # [%](AIRBUS 2015) and (AIRBUS 2012)
+            self.u_stray_rand = rad_conf.u_stray_rand_all[spacecraft][
+                band_id
+            ]  # [%](AIRBUS 2015) and (AIRBUS 2012)
         else:
             self.u_stray_rand = 0
 
         if self.unc_select[3]:
-            self.u_xtalk = rad_conf.u_xtalk_all[spacecraft][band_id]  # [W.m-2.sr-1.μm-1](AIRBUS 2015)
+            self.u_xtalk = rad_conf.u_xtalk_all[spacecraft][
+                band_id
+            ]  # [W.m-2.sr-1.μm-1](AIRBUS 2015)
         else:
             self.u_xtalk = 0
 
@@ -133,7 +151,9 @@ class S2RutAlgo:
             self.u_diff_abs = 0
 
         if not self.unc_select[8]:
-            self.u_diff_temp = 0  # calculated in s2_rut.py. Updated to 0 if deselected by user
+            self.u_diff_temp = (
+                0  # calculated in s2_rut.py. Updated to 0 if deselected by user
+            )
 
         if not self.unc_select[9]:
             self.u_diff_cos = 0  # predefined but updated to 0 if deselected by user
@@ -146,21 +166,38 @@ class S2RutAlgo:
         #######################################################################
 
         if self.unc_select[11]:
-            self.u_ref_quant = 100 * (0.5 / 3**0.5) / (self.quant * band_data)  # [%]scaling 0-1 in steps number=quant
+            self.u_ref_quant = (
+                100 * (0.5 / 3 ** 0.5) / (self.quant * band_data)
+            )  # [%]scaling 0-1 in steps number=quant
         else:
             self.u_ref_quant = 0
 
-        #######################################################################        
+        #######################################################################
         # 7.	Combine uncertainty contributors
-        #######################################################################        
+        #######################################################################
         # NOTE: no gamma propagation for RUTv1!!!
         # Uncertainty <=0 represents a processing error (uncertainty is positive)
-        u_adc    = (100 * self.u_ADC / 3**0.5) / cn
-        u_ds     = (100 * self.u_DS) / cn
-        u_stray  = (self.u_stray_rand**2 + ((100 * self.a * self.u_xtalk) / cn)**2)**0.5
-        u_diff   = (self.u_diff_abs**2 + self.u_diff_cos**2 + self.u_diff_k**2)**0.5
-        u_1sigma = (self.u_ref_quant**2 + self.u_gamma**2 + u_stray**2 + u_diff**2 +
-                    self.u_noise**2 + u_adc**2 + u_ds**2)**0.5
-        u_expand = self.u_diff_temp + ((100 * self.a * self.u_stray_sys) / cn) + self.k * u_1sigma
+        u_adc = (100 * self.u_ADC / 3 ** 0.5) / cn
+        u_ds = (100 * self.u_DS) / cn
+        u_stray = (
+            self.u_stray_rand ** 2 + ((100 * self.a * self.u_xtalk) / cn) ** 2
+        ) ** 0.5
+        u_diff = (
+            self.u_diff_abs ** 2 + self.u_diff_cos ** 2 + self.u_diff_k ** 2
+        ) ** 0.5
+        u_1sigma = (
+            self.u_ref_quant ** 2
+            + self.u_gamma ** 2
+            + u_stray ** 2
+            + u_diff ** 2
+            + self.u_noise ** 2
+            + u_adc ** 2
+            + u_ds ** 2
+        ) ** 0.5
+        u_expand = (
+            self.u_diff_temp
+            + ((100 * self.a * self.u_stray_sys) / cn)
+            + self.k * u_1sigma
+        )
 
         return u_expand

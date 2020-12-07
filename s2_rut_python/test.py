@@ -1,6 +1,7 @@
 import s2_rut
 
-def run_RUT(product,params):
+
+def run_RUT(product, params):
     """
     product is an eopy instance
     params  is a dictionary with the set of parameters to run the RUT
@@ -39,7 +40,7 @@ def run_RUT(product,params):
     """
     # parse the commands input in the dictionary
     param_keys = params.keys()
-    gpt_args   = []
+    gpt_args = []
 
     # all contributions flag
     if "all_contribs" in param_keys:
@@ -48,31 +49,35 @@ def run_RUT(product,params):
 
     else:
         # more effective way to do this but whatever
-        args = ["PADC_quantisation",
-                "PCrosstalk",
-                "PDiffuser-absolute_knowledge",
-                "PDiffuser-cosine_effect",
-                "PDiffuser-straylight_residual",
-                "PDiffuser-temporal_knowledge",
-                "PDS_stability",
-                "PGamma_knowledge",
-                "PInstrument_noise",
-                "PL1C_image_quantisation",
-                "POOF_straylight-random",
-                "POOF_straylight-systematic"]
-        gpt_args = populate_args(params,[],args)
+        args = [
+            "PADC_quantisation",
+            "PCrosstalk",
+            "PDiffuser-absolute_knowledge",
+            "PDiffuser-cosine_effect",
+            "PDiffuser-straylight_residual",
+            "PDiffuser-temporal_knowledge",
+            "PDS_stability",
+            "PGamma_knowledge",
+            "PInstrument_noise",
+            "PL1C_image_quantisation",
+            "POOF_straylight-random",
+            "POOF_straylight-systematic",
+        ]
+        gpt_args = populate_args(params, [], args)
         if "Pband_names" in param_keys:
-            gpt_args.append("-Pband_names="+params["Pband_names"])
+            gpt_args.append("-Pband_names=" + params["Pband_names"])
         else:
             pass
         if "Pcoverage_factor" in param_keys:
-            gpt_args.append("-Pcoverage_factors="+params["Pcoverage_factor"])
+            gpt_args.append("-Pcoverage_factors=" + params["Pcoverage_factor"])
         else:
             pass
         if "all_flags" in param_keys:
             for arg in args:
-                if ("-"+arg+"=False" in gpt_args) or ("-"+arg+"=True" in gpt_args):
-                    gpt_args.remove("-"+arg+"=False")
+                if ("-" + arg + "=False" in gpt_args) or (
+                    "-" + arg + "=True" in gpt_args
+                ):
+                    gpt_args.remove("-" + arg + "=False")
 
     # create temporary directory to store RUT files in and move there
     os.mkdir(mdir)
@@ -81,10 +86,12 @@ def run_RUT(product,params):
 
     ## save current product to a file located in mdir with filename saved in "temp_fname"
     # Sam: you should know the best way to do this...
-    product.save(mdir+"preProd.dim") # must save as a snappy product
+    product.save(mdir + "preProd.dim")  # must save as a snappy product
 
     # run the RUT from the command line
-    sp.call([gpt,"gpt S2RutOp ",mdir+temp_fname+" "," ".join(gpt_args)],shell=False)
+    sp.call(
+        [gpt, "gpt S2RutOp ", mdir + temp_fname + " ", " ".join(gpt_args)], shell=False
+    )
 
     # read the RUT data in
     # standard eopy read in should work here - Sam: this doesn't work - it doesn't appear that it likes .dim files
@@ -98,19 +105,19 @@ def run_RUT(product,params):
 
     # clean up temporary directories and files
     os.chdir(cdir)
-    os.remove(mdir+"target.dim")
-    os.remove(mdir+"preProd.dim")
-    shutil.rmtree(mdir+"target.data")
+    os.remove(mdir + "target.dim")
+    os.remove(mdir + "preProd.dim")
+    shutil.rmtree(mdir + "target.data")
 
 
-def populate_args(param_dict,arg_list,args):
+def populate_args(param_dict, arg_list, args):
     for arg in args:
         if arg in param_dict.keys():
             if param_dict[arg]:
-                args_list.append("-%s=True"%arg)
+                args_list.append("-%s=True" % arg)
             else:
-                args_list.append("-%s=False"%arg)
+                args_list.append("-%s=False" % arg)
         else:
-            args_list.append("-%s=False"%arg)
+            args_list.append("-%s=False" % arg)
 
     return args_list
