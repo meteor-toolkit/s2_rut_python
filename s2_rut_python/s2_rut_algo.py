@@ -35,6 +35,12 @@ class S2RutAlgo:
         self.unc_select  = [True, True, True, True, True, True, True, True, True, True, True,
                             True]  # list of booleans with user selected uncertainty sources(order as in interface)
 
+    def eval_cn(self, band_data):
+        return (self.a * self.e_sun * self.u_sun * np.cos(np.radians(self.tecta)) / math.pi) * band_data
+
+    def eval_u_noise(self, cn):
+        return 100 * (self.alpha ** 2 + self.beta * cn) ** 0.5 / cn
+
     def unc_calculation(self, band_data, band_id, spacecraft):
         """
         This function represents the core of the RUTv1.
@@ -64,7 +70,7 @@ class S2RutAlgo:
 
         # Replace the reflectance factors by CN values
         # cn = (self.a * self.e_sun * self.u_sun * math.cos(math.radians(self.tecta)) / math.pi) * band_data
-        cn = (self.a * self.e_sun * self.u_sun * np.cos(np.radians(self.tecta)) / math.pi) * band_data
+        cn = self.eval_cn(band_data)
 
         #######################################################################
         # 2.	Orthorectification process
@@ -77,7 +83,7 @@ class S2RutAlgo:
         #######################################################################
 
         if self.unc_select[0]:
-            self.u_noise = 100 * (self.alpha**2 + self.beta * cn)**0.5 / cn
+            self.u_noise = self.eval_u_noise(cn)
         else:
             self.u_noise = 0
 
