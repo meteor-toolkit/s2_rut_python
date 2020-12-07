@@ -14,7 +14,7 @@ Created 04/03/2020 by N. Origo (original code by Javier Gorrono)
 """
 import snappy
 from snappy import HashMap as hash
-import s2_rut_algo
+import s2_rut_python.s2_rut_algo
 import numpy as np
 import datetime
 import os
@@ -24,7 +24,7 @@ try:
     import xml.etree.cElementTree as ET  # C implementation is much faster and consumes significantly less memory
 except ImportError:
     import xml.etree.ElementTree as ET
-import s2_l1_rad_conf as rad_conf
+import s2_rut_python.s2_l1_rad_conf as rad_conf
 
 # necessary for logging
 # from snappy import SystemUtils

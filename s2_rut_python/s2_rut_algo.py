@@ -9,7 +9,7 @@ import numpy as np
 import math
 import warnings
 
-import s2_l1_rad_conf as rad_conf
+import s2_rut_python.s2_l1_rad_conf as rad_conf
 
 
 class S2RutAlgo:
