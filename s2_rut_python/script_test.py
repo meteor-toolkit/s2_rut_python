@@ -15,7 +15,7 @@ bands = ['B01', 'B02', 'B8A']
 # initialise object
 obj = S2toxr(base, bands=bands)
 
-# read in satellite metadata and image data into xarray
+# read in satellite metadata and image data into xarray, if solar zenith angles required run obj.read_meta(sza=True)
 obj.read_meta()
 obj.read_img()
 

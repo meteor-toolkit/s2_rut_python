@@ -180,13 +180,14 @@ class S2toxr(Sat2xr):
             'Sentinel-2A': [0.15, 0.09, 0.04, 0.02, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
             'Sentinel-2B': [0.15, 0.09, 0.04, 0.02, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
 
-    def read_meta(self):
+    def read_meta(self, sza=False):
         """
         Reads in the selected metadata and sets attributes to object global and band specific dictionary.
 
         If no bands are selected prints 'All bands selected' and reads all band metadata.
 
-        :return: None
+        :param sza: whether to read in the solar zenith angles or not
+        :return:
         """
         try:
             datastrip_meta = ET.parse(glob.glob(self.filepath + '\\*\\*\\MTD_DS.xml')[0]).getroot()
@@ -228,6 +229,11 @@ class S2toxr(Sat2xr):
                 self._TIME_DEGRADATION_TAG: no_d * self._u_diff_temp_rate[self._spacecraft][int(self._bands_dict[bnd])]}
             self._res.append(
                 datastrip_meta.findall(".//*[@bandId='" + self._bands_dict[bnd] + "']/RESOLUTION")[0].text)
+
+        if sza == True:
+            self.read_sza(granule_meta)
+        else:
+            pass
 
     def read_img(self, lon: tuple or list = None, lat: tuple or list = None):
         """
@@ -281,3 +287,32 @@ class S2toxr(Sat2xr):
                     self.msk_dict[bnd].update(
                         {"opaque_clouds": clouds_dict[self._res[i]][0], "cirrus_clouds": clouds_dict[self._res[i]][1],
                          "snow_and_ice_areas": clouds_dict[self._res[i]][2]})
+
+    def read_sza(self, granule_meta):
+        """
+        Reads sza Viewing Incidence Grid for desired bands
+
+        :param granule_meta:
+        :return:
+        """
+        for bnd in self.bands:
+            test_sza = []
+            for dec in range(5):
+                test = [i.text.split() for i in granule_meta.findall(
+                    ".//Viewing_Incidence_Angles_Grids[@bandId='" + self._bands_dict[bnd] + "'][@detectorId='" + str(
+                        dec + 1) + "']/Zenith/Values_List/VALUES")]
+                for j in range(len(test[0])):
+                    test[j] = [float(k) if float(k) > 0 else 0 for k in test[j]]
+                test_sza.append(test)
+            test_sza_np = np.sum(np.array(test_sza), axis=0)
+
+            msk_sza_test = []
+            for dec in range(5):
+                msk_test = []
+                for i in range(23):
+                    msk_test.append([1 if float(k) > 0 else 0 for k in test_sza[dec][i]])
+                msk_sza_test.append(msk_test)
+            msk_sza = np.sum(np.array(msk_sza_test), axis=0)
+
+            sza_final = np.nan_to_num(np.divide(test_sza_np, msk_sza), nan=0)
+            self.lv_dict[bnd].update({'SOLAR_ZENITH_ANGLES': sza_final})
