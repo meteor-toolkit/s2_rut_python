@@ -1,27 +1,36 @@
 """
 Created on Thurs Oct 06 11:51:21 2022
 
+From Fri 14 Oct 2022 sat2xr.py used to read in satellite data and metadata
+
 @author: mattea.goalen
 """
 import os
 import glob
-import s2_rut_algo
+import importlib
 import datetime
 import rioxarray as rxr
+import xarray as xr
+
+snap_rut = importlib.import_module("snap-rut")
+s2_rut_algo = __import__("snap-rut.src.main.python.s2_rut_algo")
+rad_conf = __import__("snap-rut.src.main.python.s2_l1_rad_conf")
+# from snap_rut.src.main.python import s2_rut_algo
 
 try:
     import xml.etree.cElementTree as ET  # C implementation is much faster and consumes significantly less memory
 except ImportError:
     import xml.etree.ElementTree as ET
-import s2_l1_rad_conf as rad_conf
 
 S2_MSI_TYPE_STRING = "S2MSI1C"
 res_10m = ['B02', 'B03', 'B04', 'B08']
 res_20m = ['B05', 'B06', 'B07', 'B8A', 'B11', 'B12']
 res_60m = ['B01', 'B09', 'B10']
 
+
 class S2Rut:
     def __init__(self):
+        self.filepath = None
         self.datastrip_meta = None
         self.product_meta = None
         self.spacecraft = None
@@ -84,15 +93,17 @@ class S2Rut:
         qid = [qi_detfoo[i] for i in range(len(qi_detfoo)) if b[i] in bands]
         qiq = [qi_quality[i] for i in range(len(qi_quality)) if b[i] in bands]
 
-        # open files and set values in dict
-        self.s2_ds = dict.fromkeys(bands)
+        # open files and set values in xarray Dataset
+        self.s2_ds = xr.Dataset()
         for (bnd, im, qd, qq) in zip(bands, img, qid, qiq):
-            self.s2_ds[bnd] = [rxr.open_rasterio(im), rxr.open_rasterio(qd), rxr.open_rasterio(qq)]
-            self.s2_ds[bnd][2] = self.s2_ds[bnd][2].assign_coords({'band': ["ancillary_lost", "ancillary_degraded",
-                                                                            "msi_lost", "msi_degraded", "defective",
-                                                                            "nodata", "partially_corrected_crosstalk",
-                                                                            "saturated_l1a"]})
-            self.s2_ds[bnd][2] = self.s2_ds[bnd][2].rename({'band': 'mask'})
+            self.s2_ds[bnd] = rxr.open_rasterio(im)[0]
+            self.s2_ds[bnd + "_qiq"] = rxr.open_rasterio(qq)
+            # self.s2_ds[bnd] = [rxr.open_rasterio(im), rxr.open_rasterio(qd), rxr.open_rasterio(qq)]
+            # self.s2_ds[bnd][2] = self.s2_ds[bnd][2].assign_coords({'band': ["ancillary_lost", "ancillary_degraded",
+            #                                                                 "msi_lost", "msi_degraded", "defective",
+            #                                                                 "nodata", "partially_corrected_crosstalk",
+            #                                                                 "saturated_l1a"]})
+            # self.s2_ds[bnd][2] = self.s2_ds[bnd][2].rename({'band': 'mask'})
 
         self.toa_band_names = bands
 
@@ -120,13 +131,13 @@ class S2Rut:
         self.spacecraft = self.product_meta.findall(".//SPACECRAFT_NAME")[0].text
         product_type = self.product_meta.findall(".//PRODUCT_TYPE")[0].text
 
-        # verify as valid Sentinel-2 product first
-        if product_type is S2_MSI_TYPE_STRING:
-            pass
-        else:
+        if product_type is not S2_MSI_TYPE_STRING:
             raise RuntimeError('Source product must be of type "' + S2_MSI_TYPE_STRING + '"')
+        # verify as valid Sentinel-2 product first
+        else:
+            pass
 
-        self.rut_algo.u_sun = self.product_meta.root.findall(".//U")[0].text
+        self.rut_algo.u_sun = self.product_meta.findall(".//U")[0].text
         self.rut_algo.quant = self.product_meta.findall(".//QUANTIFICATION_VALUE")[0].text
 
         # get cloud masks
@@ -148,10 +159,8 @@ class S2Rut:
         if 'B01' or 'B09' or 'B10' in self.toa_band_names:
             self.cloud_masks_60m = self.cloud_masks
 
-
     def _run_s2_rut(self, band):
         sampling = self.product_meta.findall(".//QUANTIFICATION_VALUE")[0].text
 
     def get_tecta(self):
         pass
-
