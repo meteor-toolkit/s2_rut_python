@@ -25,9 +25,7 @@ from eoio.processors import utils as util
 
 __all__ = []
 
-s2_l1c_filepaths = os.path.abspath(
-    r"T:\ECO\EOServer\data\satellite\S2A_MSI\L1\PICS\Libya4"
-    r"\S2A_MSIL1C_20190113T090331_N0207_R007_T34RGS_20190113T111955.SAFE")
+s2_l1c_filepaths = os.path.abspath(r"T:\ECO\EOServer\data\satellite\S2A_MSI\L1\PICS\Libya4\S2A_MSIL1C_20190113T090331_N0207_R007_T34RGS_20190113T111955.SAFE")
 
 s2_l1c_product_bounds = product_bounds(s2_l1c_filepaths)
 s2_l1c_mid_lat_lon = mid_lon_lat(s2_l1c_filepaths)
@@ -35,7 +33,7 @@ s2_l1c_mid_lat_lon = mid_lon_lat(s2_l1c_filepaths)
 s2_l1c_ds = read(
     s2_l1c_filepaths,
     subset_info={
-        "meas_vars": ["B02"],
+        "meas_vars": ["B01"],
         "metadataLevel": True,
         "masks": ["ancillary_lost", "opaque", "cirrus", "detector_footprint"],
         "aux_data": [
@@ -52,8 +50,8 @@ s2_l1c_ds = read(
 
 
 product = 'Sentinel-2A'
-band = 'B02'
-subset = s2_l1c_ds['B02'].values[1000:1501, 1000:1501]
+band = 'B01'
+subset = s2_l1c_ds['B01'].values  # [1000:1501, 1000:1501]
 
 # Data from Variable Metadata
 
@@ -65,9 +63,9 @@ beta = s2_l1c_ds[band].BETA  # noise
 # Data from Global Metadata
 
 u_sun = get_value(s2_l1c_ds.attrs, 'U')  # u_sun['U'] Reflectance_Conversion
-tecta = util.interp_sza_s2(s2_l1c_ds, 10)
+tecta = util.interp_sza_s2(s2_l1c_ds, 60)
 quant = get_value(s2_l1c_ds.attrs, "QUANTIFICATION_VALUE")
-u_diff_temp = (get_value(s2_l1c_ds.attrs, 'DATASTRIP_SENSING_START') - datetime.datetime(2015, 6, 23, 10, 00)).days / 365.25 * 0.04
+u_diff_temp = (get_value(s2_l1c_ds.attrs, 'DATASTRIP_SENSING_START') - datetime.datetime(2015, 6, 23, 10, 00)).days / 365.25 * 0.15
 
 # Same value(s) for all S2A/S2B
 
@@ -78,12 +76,12 @@ u_diff_temp = (get_value(s2_l1c_ds.attrs, 'DATASTRIP_SENSING_START') - datetime.
 
 # Running S2-RUT
 
-B03 = s2_rut_algo.S2RutAlgo(a, e_sun, u_sun, tecta[1000:1501, 1000:1501], quant, alpha, beta, 0.4,
+B03 = s2_rut_algo.S2RutAlgo(a, e_sun, u_sun, tecta, quant, alpha, beta, 0.4,
                             0.3, u_diff_temp, 0.5, 0.4, 1)
 
 # B03_err = B03.unc_calculation(s2_l1c_ds.B03.values, 2, 'Sentinel-2A')  # when roi is defined
 
-B03_err = B03.unc_calculation(subset, 1, 'Sentinel-2A')
+B03_err = B03.unc_calculation(subset, 0, 'Sentinel-2A')
 
 plt.imshow(B03_err)
 plt.colorbar()

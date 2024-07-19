@@ -35,9 +35,6 @@ else:
 
 SCRAPPI_DATA_DIRECTORY = os.path.join(DATA_DIRECTORY, "product_archive")
 
-# s2_l1c_filepaths = os.path.abspath(
-#     r"\\eoserver\home\data\satellite\S2_MSI\Libya-4-2\S2A_MSIL1C_20201004T085831_N0209_R007_T34RGS_20201004T103219.SAFE")
-
 s2_l1c_filepaths = os.path.abspath(
     r"T:\ECO\EOServer\data\satellite\S2A_MSI\L1\PICS\Libya4"
     r"\S2A_MSIL1C_20190113T090331_N0207_R007_T34RGS_20190113T111955.SAFE")
@@ -49,20 +46,20 @@ s2_l1c_mid_lat_lon = mid_lon_lat(s2_l1c_filepaths)
 s2_l1c_ds = read(
     s2_l1c_filepaths,
     subset_info={
-        "meas_vars": ["B03"],
+        "meas_vars": ["B01"],
         "roi": [
-            # (720000.0, 3120000.0),  # values for each are set according to coordinates x_10m and y_10m
-            # (720000.0, 3120000.0),
-            # (720000.0, 3100000.0),
-            # (750000.0, 3100000.0),
-            # (750000.0, 3120000.0),
-            (23.5, 28.3),  # values for each are set according to coordinates x_10m and y_10m
-            (23.4, 28.3),
-            (23.4, 28.1),
-            (23.5, 28.1),
-            (23.5, 28.3),
+            (720000.0, 3120000.0),  # values for each are set according to coordinates x_10m and y_10m
+            (720000.0, 3120000.0),
+            (720000.0, 3100000.0),
+            (750000.0, 3100000.0),
+            (750000.0, 3120000.0),
+            # (23.5, 28.3),  # values for each are set according to coordinates x_10m and y_10m
+            # (23.4, 28.3),
+            # (23.4, 28.1),
+            # (23.5, 28.1),
+            # (23.5, 28.3),
         ],
-        "roi_crs": 4326,  # 4326 for lat/lon, 32634 for pixels
+        "roi_crs": 32634,  # 4326 for lat/lon, 32634 for pixels
         "metadataLevel": True,
         "masks": ["ancillary_lost", "opaque", "cirrus", "detector_footprint"],
         "aux_data": [
@@ -78,8 +75,12 @@ s2_l1c_ds = read(
 )
 
 
+#  Data can be squeezed (removed the unwanted dimensions) by using squeeze()
+# (1,300,500)
+# data.squeeze().shape = (300,500)
+
 product = 'Sentinel-2A'
-band = 'B03'
+band = 'B01'
 
 # Data from Variable Metadata
 
@@ -91,7 +92,7 @@ beta = s2_l1c_ds[band].BETA  # noise
 # Data from Global Metadata
 
 u_sun = get_value(s2_l1c_ds.attrs, 'U')  # u_sun['U'] Reflectance_Conversion
-tecta = util.interp_sza_s2(s2_l1c_ds, 10)
+tecta = util.interp_sza_s2(s2_l1c_ds, 60)
 quant = get_value(s2_l1c_ds.attrs, "QUANTIFICATION_VALUE")
 
 # Same value(s) for all S2A/S2B
@@ -107,7 +108,7 @@ k = 1
 
 B03 = s2_rut_algo.S2RutAlgo(a, e_sun, u_sun, tecta, quant, alpha, beta, u_diff_cos,
                             u_diff_k, u_diff_temp, True, True, k)
-B03_err = B03.unc_calculation(s2_l1c_ds.B03.values, 2, 'Sentinel-2A')
+B03_err = B03.unc_calculation(s2_l1c_ds.B03.values, 0, 'Sentinel-2A')
 print(B03_err)
 
 if __name__ == "__main__":
