@@ -1,15 +1,16 @@
 """s2_rut_interface - Sentinel-2A and Sentinel-2B L1 uncertainty calculation class """
 
+"""u_diff_temp is not added in quadrature so the unc types added together do not make up the total unc fully"""
+
 from typing import Union, Optional, List, Dict
 import re
 import xarray as xarray
 import datetime
 from eoio.utils.dict_tools import *
 from eoio.processors import utils as util
+
 import sys
 import os
-import obsarray
-
 
 THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 S2_RUT_DIRECTORY = os.path.join(THIS_DIRECTORY, "snap-rut", "src", "main", "python")
@@ -66,34 +67,22 @@ U_CONTRIBUTIONS = [
     "L1C_image_quantisation",
 ]
 
-# class MyS2RUTAlgo(srut.S2RutAlgo):
-#     # Overwrite Javie's set parameter values with those extracted from metadata
-#     def __init__(self, a, e_sun, u_sun, tecta, quant, alpha, beta, u_diff_cos, u_diff_k, u_diff_temp, u_ADC, u_gamma, k):
-#         self.a = a
-#         self.e_sun = e_sun
-#         self.u_sun = u_sun
-#         self.tecta = tecta
-#         self.quant = quant
-#         self.alpha = alpha
-#         self.beta = beta
-#         self.u_diff_cos = u_diff_cos
-#         self.u_diff_k = u_diff_k
-#         self.u_diff_temp = u_diff_temp
-#         self.u_ADC = u_ADC
-#         self.u_gamma = u_gamma
-#         self.k = k
-#         self.band_id = {band: index for index, band in enumerate(MEAS_VAR_RES.keys())}
-#
-
-
 class MyS2RUTAlgo(srut.S2RutAlgo):
     # Overwrite Javie's set parameter values with those extracted from metadata
-    def __init__(self, **kwargs):
-        super().__init__()
-
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
+    def __init__(self, a, e_sun, u_sun, tecta, quant, alpha, beta, u_diff_cos, u_diff_k, u_diff_temp, u_ADC, u_gamma, k):
+        self.a = a
+        self.e_sun = e_sun
+        self.u_sun = u_sun
+        self.tecta = tecta
+        self.quant = quant
+        self.alpha = alpha
+        self.beta = beta
+        self.u_diff_cos = u_diff_cos
+        self.u_diff_k = u_diff_k
+        self.u_diff_temp = u_diff_temp
+        self.u_ADC = u_ADC
+        self.u_gamma = u_gamma
+        self.k = k
 
 class S2RUT:
     DEFAULT_BAND_UNC_PARAMS = {
@@ -117,84 +106,104 @@ class S2RUT:
 
     def run_rut(self,
                 data_set: xarray.Dataset,
+                coverage_factor: Optional[float] = None,
                 band_names: Union[List[str], str] = None,
-                unc_info: str = None,
+                uncertainty: Optional[Union[List[str], str]] = None,
+                unc_contributions: Optional[Union[List[str], str]] = None,
+                unc_params: Optional[Union[List[str], str]] = None,
                 unc_correlations: Optional[Union[List[str], str]] = None,
                 ) -> Dict[str, Dict[str, float]]:
         """
         Run the Sentinel 2 radiometric uncertainty tool s2_rut
 
         :param data_set: satellite data_set product for which to calculate uncertainties
+        :param coverage_factor: chosen coverage factor defining the confidence level of the uncertainty,
+                                options: 1.0, 2.0, 3.0, by default 1.0
         :param band_names: definition of desired S2 bands,
                            options: B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B10, B11, B12, by default None
-        :param unc_info: chosen output uncertainty information
-                         options: full, components, total
-        :param unc_correlations: definition of the desired uncertainty correlations, by default None
+        :param uncertainty: chosen output uncertainty type
+                            options: full, components, total
         """
+        # :param unc_contributions: definition of the desired uncertainty contributions, by default None
+        # :param unc_params: definition of the desired uncertainty parameters, by default None
+        # :param unc_correlations: definition of the desired uncertainty correlations, by default None
 
-        unc_info_dict = {}
+        # Validate band inputs
+        if band_names is None:
+            print(f"Warning: No bands have been selected. By default all selected: {list(MEAS_VAR_RES.keys())}.")
+            band_names = list(MEAS_VAR_RES.keys())
+        else:
+            if isinstance(band_names, str):
+                band_names = [band_names]
+            if not all(isinstance(band, str) for band in band_names):
+                raise ValueError("Band names must be a list of strings.")  # wrong input format
+
+            # Make sure the input bands exist for the satellite/instrument
+
+            valid_band_names = []
+            for band in band_names:
+                if any(re.match(pattern, band) for pattern in MEAS_VAR_RES.keys()):
+                    valid_band_names.append(band)
+                else:
+                    raise ValueError(f"Error: Provided band {band} does not exist for the provided data. Valid "
+                                     f"bands are {list(MEAS_VAR_RES.keys())}")
+
+        unc_info = {}
+        unc_contr = self.return_unc_contributions(unc_contributions)
         unc_corr = self.return_unc_correlations(unc_correlations)
 
-        # Correlations are defined
-        if unc_correlations is not None:
-            unc_info_dict.update(unc_corr)
+        # Both: uncertainty contributions and correlations are defined
+        if unc_contributions is not None and unc_correlations is not None:
+            unc_info.update(unc_corr)
+            unc_info.update(unc_contr)
+        # Only contributions are defined
+        elif unc_contributions is not None:
+            unc_info.update(unc_contr)
+        # Only correlations are defined
+        elif unc_correlations is not None:
+            unc_info.update(unc_corr)
         # No contributions or correlations are defined
         else:
-            print(f"Warning: No uncertainty correlation typed. By default all selected: '{U_CONTRIBUTIONS}'.")
-            unc_info_dict.update(self.corr_types.keys())
+            unc_info.update(unc_contr)
+            print(f"Warning: No uncertainty correlation type or contributions specified. By default all selected: '{U_CONTRIBUTIONS}'.")
 
-        # Define desired uncertainty information: full, components, total
-        unc_info_options = ['components', 'total']
-        # Desired uncertainty output has not been defined
-        if unc_info is None:
+        # If coverage factor is not 1.0, 2.0 or 3.0, set it to 1.0 by default
+        if coverage_factor not in (1.0, 2.0, 3.0):
             print(
-                f"Warning: No uncertainty options specified. By default total uncertainty returned.")
-            unc_info = unc_info_options
-        for info in unc_info:
-            if info not in unc_info_options:
-                print(f"Warning: Invalid uncertainty options specified. Options are '{unc_info_options}'. By default total uncertainty returned.")
-                unc_info = unc_info_options
+                f"Warning: Invalid coverage_factor {coverage_factor} selected. Must be 1.0, 2.0 or 3.0. By default k has been set to 1.0.")
+            coverage_factor = self.DEFAULT_GLOBAL_UNC_PARAMS['k']
 
+        # Obtain information about user selected contributions and/or correlations
+
+        # Define a dictionary to store xarrays for each band
         datasets = {}
         for band in band_names:
             datasets[band] = xarray.Dataset()
-            band_unc_params = self.get_band_unc_parameters(data_set, band)
-            if "full" in unc_info:
-                # Add parameters to xarray for each band then clear the unc_params for next band
-                datasets[band]['full'] = xarray.DataArray(data=band_unc_params)
+            #
+            datasets[band]['uncertainty_variables'] = xarray.DataArray(data=unc_info)
+            # Retrieve band uncertainty parameters from the provided data set and k for each band
+            band_unc_params = self.get_band_unc_parameters(data_set, band, coverage_factor)
 
-            elif "total" in unc_info:
-                unc_contr = self.return_unc_contributions()
-                rut = MyS2RUTAlgo(band_unc_params)
-                rut.unc_select = list(unc_contr.values())
+            # If no parameters are defined, use default. Else combine global and given parameters
+            if unc_params is None:
+                unc_params = {**self.DEFAULT_GLOBAL_UNC_PARAMS, **self.DEFAULT_BAND_UNC_PARAMS, **band_unc_params}
+            else:
+                unc_params = {**self.DEFAULT_GLOBAL_UNC_PARAMS, **band_unc_params, **unc_params}
+
+            # Add parameters to xarray for each band then clear the unc_params for next band
+            datasets[band]['parameters'] = xarray.DataArray(data=unc_params)
+            unc_params = None
+
+            # Initialize and run the uncertainty calculation algorithm for each of the bands
+            for unc_type in unc_info.keys():
+                rut = MyS2RUTAlgo(**datasets[band].parameters.item())
+                # overwrite Javie's unc_select with the user selected uncertainty parameter
+                rut.unc_select = list(datasets[band].uncertainty_variables.item()[unc_type].values())
                 unc = rut.unc_calculation(data_set[band].values, self.band_id[band], data_set.platform)
-                datasets[band]['total'] = xarray.DataArray(
+                datasets[band][unc_type] = xarray.DataArray(
                     data=unc,
                     dims=("x", "y"),
                 )
-
-            # if "components" in unc_info:
-            #     unc_corr = self.return_unc_correlations(unc_correlations)
-            # # Initialize and run the uncertainty calculation algorithm for each of the bands
-            # for unc_type in unc_info_dict.keys():
-            #     rut = MyS2RUTAlgo(**datasets[band].parameters.item())
-            #     # overwrite Javie's unc_select with the user selected uncertainty parameter
-            #     rut.unc_select = list(datasets[band].uncertainty_variables.item()[unc_type].values())
-            #     unc = rut.unc_calculation(data_set[band].values, self.band_id[band], data_set.platform)
-            #     datasets[band][unc_type] = xarray.DataArray(
-            #         data=unc,
-            #         dims=("x", "y"),
-            #     )
-            #
-            # if "total" in unc_info:
-            #     unc_contr = self.return_unc_contributions(unc_contributions)
-            #             #     rut = MyS2RUTAlgo(**datasets[band].parameters.item())
-            #             #     rut.unc_select = list(unc_contr.values())
-            #             #     unc = rut.unc_calculation(data_set[band].values, self.band_id[band], data_set.platform)
-            #             #     datasets[band]['total'] = xarray.DataArray(
-            #             #         data=unc,
-            #             #         dims=("x", "y"),
-            #             #     )
 
         return datasets
 
@@ -240,19 +249,30 @@ class S2RUT:
 
         return corr_types_all
 
-    def return_unc_contributions(self):
+    def return_unc_contributions(self, unc_contributions):
         """
         Return dictionary of uncertainty contributions to include, by default return true for all.
         """
 
         default_unc_contributions = {}
-        for unc in U_CONTRIBUTIONS:
-            default_unc_contributions[unc] = True
+        # If no uncertainty contributions defined, all are selected
+        if unc_contributions is None:
+            for unc in U_CONTRIBUTIONS:
+                default_unc_contributions[unc] = True
+        # Filter which uncertainties have been selected
+        elif unc_contributions is not None:
+            for unc in U_CONTRIBUTIONS:
+                if unc in unc_contributions:
+                    default_unc_contributions[unc] = True
+                else:
+                    default_unc_contributions[unc] = False
 
-        return default_unc_contributions
+        # Formats the contribution dict same as for correlations
+        default_unc_contributions_dict = {'combined': default_unc_contributions}
 
+        return default_unc_contributions_dict
 
-    def get_band_unc_parameters(self, data_set, band):
+    def get_band_unc_parameters(self, data_set, band, coverage_factor):
         """
         Extract band-specific uncertainty parameters from the provided data_set (eoio specific).
         """
@@ -268,14 +288,10 @@ class S2RUT:
             'quant': get_value(data_set.attrs, "QUANTIFICATION_VALUE"),
             'alpha': data_set[band].ALPHA,
             'beta': data_set[band].BETA,
-            'u_diff_cos': self.DEFAULT_GLOBAL_UNC_PARAMS['u_diff_cos'],
-            'u_diff_k': self.DEFAULT_GLOBAL_UNC_PARAMS['u_diff_k'],
             'u_diff_temp': (get_value(data_set.attrs, 'DATASTRIP_SENSING_START')
                             - TIME_INIT[data_set.platform]).days / 365.25
                            * conf.u_diff_temp_rate[data_set.platform][self.band_id[band]],
-            'u_ADC': self.DEFAULT_GLOBAL_UNC_PARAMS['u_ADC'],
-            'u_gamma': self.DEFAULT_GLOBAL_UNC_PARAMS['u_gamma'],
-            'k': self.DEFAULT_GLOBAL_UNC_PARAMS['k']
+            'k': coverage_factor
         }
 
         return band_params

@@ -1,10 +1,22 @@
 s2_rut_python
 =============
 
-Pure Python port of Javi's Sentinel-2 radiometric uncertainty tool
+Pure Python port of Javi's Sentinel-2 radiometric uncertainty tool. Utilises the s2_rut_algo.py file containing the
+individual uncertainty parameters and the calculations for finding the individual uncertainty contributions. Also,
+s2_l1_rad_conf.py file is required, which contains band- and spacecraft-specifc values required for calculating the
+uncertainties.
 
 Usage
 =====
+Files are read into an xarray format for use with our other tools. Eoio capabilities are used for accessing the metadata.
+
+Example
+=======
+An example illustrating the circumstances in which your code would normally be used is available in run_s2rut_example.py.
+Two different input cases are demonstrated: Sentinel-2A and Sentinel-2B in .SAFE (Standard Archive Format for Europe)
+data format.
+
+
 
 Virtual environment
 -------------------

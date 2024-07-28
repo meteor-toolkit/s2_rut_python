@@ -5,13 +5,18 @@ Data set selected is from the eoio documentation, read_examples_s2.py
 
 Created 02/05/2024 by R.Ormane
 """
-import os
+
 import datetime
-
 import matplotlib.pyplot as plt
+import sys
+import os
 
-import s2_l1_rad_conf
-import s2_rut_algo
+THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
+S2_RUT_DIRECTORY = os.path.join(THIS_DIRECTORY, "snap-rut", "src", "main", "python")
+
+sys.path.insert(0, S2_RUT_DIRECTORY)
+import s2_l1_rad_conf as conf
+import s2_rut_algo as rut
 from eoio.interface import (
     read,
     product_bounds,
@@ -19,7 +24,6 @@ from eoio.interface import (
 )
 from eoio.utils.dict_tools import *
 from eoio.processors import utils as util
-import s2_l1_rad_conf
 
 __all__ = []
 
@@ -76,9 +80,9 @@ for bandID, bands in enumerate(bandList):
     beta = s2_l1c_ds[bands].BETA  # noise
     tecta = util.interp_sza_s2(s2_l1c_ds, resolution[bandID])
     u_diff_temp = (get_value(s2_l1c_ds.attrs, 'DATASTRIP_SENSING_START') - datetime.datetime(2015, 6, 23, 10,
-                                                                                             00)).days / 365.25 * s2_l1_rad_conf.u_diff_temp_rate[s2_l1c_ds.platform][bandID]
+                                                                                             00)).days / 365.25 * conf.u_diff_temp_rate[s2_l1c_ds.platform][bandID]
     subset = s2_l1c_ds[bands].values
-    band = s2_rut_algo.S2RutAlgo(a, e_sun, u_sun, tecta, quant, alpha, beta, 0.4,
+    band = rut.S2RutAlgo(a, e_sun, u_sun, tecta, quant, alpha, beta, 0.4,
                                 0.3, u_diff_temp, 0.5, 0.4, 1)
     bandUnc = band.unc_calculation(subset, bandID, s2_l1c_ds.platform)
     print(bandUnc)
