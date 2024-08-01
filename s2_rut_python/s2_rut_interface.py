@@ -25,7 +25,7 @@ __author__ = [
 __all__ = [
     "S2RUT"
 ]
-# s2 = rut.S2RutAlgo()
+
 MEAS_VAR_RES = {
     "B01": 60,
     "B02": 10,
@@ -46,6 +46,24 @@ TIME_INIT = {
     "Sentinel-2A": datetime.datetime(2015, 6, 23, 10, 00),
     "Sentinel-2B": datetime.datetime(2017, 3, 7, 10, 00),
 }
+
+# Categorise correlations for all possible uncertainty contributions
+CORR_TYPES = {"systematic": ["OOF_straylight-systematic",
+                             "Crosstalk",
+                             "Diffuser-straylight_residual",
+                             "Diffuser-temporal_knowledge"
+                             ],
+              "random": ["OOF_straylight-random"],
+              "structured": ["Instrument_noise",
+                             "ADC_quantisation",
+                             "DS_stability",
+                             "Gamma_knowledge",
+                             "Diffuser-absolute_knowledge",
+                             "Diffuser-cosine_effect",
+                             "L1C_image_quantisation",
+                             ],
+              }
+
 
 U_CONTRIBUTIONS = [
     "Instrument_noise",
@@ -74,12 +92,17 @@ class MyS2RUTAlgo(srut.S2RutAlgo):
 
 
 class S2RUT:
+    def __init__(self):
+        # Define the band names and index the band names
+        self.band_id = {}
+        # Initialise Javie's original class to access the default set parameters
+        # (u_diff_cos, u_diff_k, u_ADC, u_gamma, u_k),
+        self.og_rut = srut.S2RutAlgo()
 
     def run_rut(self,
                 data_set: xarray.Dataset,
                 band_names: Union[List[str], str] = None,
                 unc_info: Optional[str] = None,
-                unc_correlations: Optional[Union[List[str], str]] = None,
                 ) -> Dict[str, Dict[str, float]]:
         """
         Run the Sentinel 2 radiometric uncertainty tool s2_rut
@@ -89,7 +112,6 @@ class S2RUT:
                            options: B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B10, B11, B12, by default None
         :param unc_info: chosen output uncertainty information
                          options: components, total
-        :param unc_correlations: definition of the desired uncertainty correlations, by default None
         """
         unc_corr = self.return_unc_correlations()
         datasets = {}
@@ -125,27 +147,10 @@ class S2RUT:
         Return dictionary of uncertainty contributions to include, by default return true for all.
         """
 
-        # Categorise correlations for all possible uncertainty contributions
-        corr_types = {"systematic": ["OOF_straylight-systematic",
-                                     "Crosstalk",
-                                     "Diffuser-straylight_residual",
-                                     "Diffuser-temporal_knowledge"
-                                     ],
-                      "random": ["OOF_straylight-random"],
-                      "structured": ["Instrument_noise",
-                                     "ADC_quantisation",
-                                     "DS_stability",
-                                     "Gamma_knowledge",
-                                     "Diffuser-absolute_knowledge",
-                                     "Diffuser-cosine_effect",
-                                     "L1C_image_quantisation",
-                                     ],
-                      }
-
         corr_types_all = {}
-        for unc_type in corr_types:
+        for unc_type in CORR_TYPES:
             unc_corr = {key: False for key in U_CONTRIBUTIONS}
-            for key in corr_types[unc_type]:
+            for key in CORR_TYPES[unc_type]:
                 unc_corr[key] = True
                 corr_dict = {unc_type: unc_corr}
                 # add contribution dictionary to the correlation dictionary
@@ -157,12 +162,7 @@ class S2RUT:
         """
         Extract band-specific uncertainty parameters from the provided data_set (eoio specific).
         """
-        # Define the band names and index the band names
         self.band_id = {band: index for index, band in enumerate(MEAS_VAR_RES.keys())}
-
-        # Initialise Javie's original class to access the default set parameters
-        # (u_diff_cos, u_diff_k, u_ADC, u_gamma, u_k),
-        self.og_rut = srut.S2RutAlgo()
 
         # Extract band uncertainty information (using eoio)
         band_params = {

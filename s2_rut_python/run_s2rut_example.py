@@ -55,7 +55,6 @@ test = s2rut.run_rut(
     data_set=s2_l1c_ds,
     band_names=['B01', 'B09'],  # ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B10', 'B11', 'B12']
     unc_info='components',  # 'total'
-    # unc_correlations=["systematic", "random", "structured"], # If none defined, only returns combined uncertainty
 )
 
 print(test)
