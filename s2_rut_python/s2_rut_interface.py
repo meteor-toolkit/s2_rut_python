@@ -7,6 +7,7 @@ from eoio.utils.dict_tools import *
 from eoio.processors import utils as util
 import sys
 import os
+import numpy as np
 import obsarray
 
 THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
@@ -94,7 +95,7 @@ class MyS2RUTAlgo(srut.S2RutAlgo):
 class S2RUT:
     def __init__(self):
         # Define the band names and index the band names
-        self.band_id = {}
+        self.band_id = {band: index for index, band in enumerate(MEAS_VAR_RES.keys())}
         # Initialise Javie's original class to access the default set parameters
         # (u_diff_cos, u_diff_k, u_ADC, u_gamma, u_k),
         self.og_rut = srut.S2RutAlgo()
@@ -114,33 +115,38 @@ class S2RUT:
                          options: components, total
         """
         unc_corr = self.return_unc_correlations()
-        datasets = {}
+        result = {}
+
         for band in band_names:
-            datasets[band] = xarray.Dataset()
+            y_dim = data_set[band].coords.dims[0]
+            x_dim = data_set[band].coords.dims[1]
+            y_coord = data_set[band].coords[y_dim].values
+            x_coord = data_set[band].coords[x_dim].values
+
             band_unc_params = self.get_band_unc_parameters(data_set, band)
             rut = MyS2RUTAlgo(band_unc_params)
+
+            dataset = xarray.Dataset(coords={y_dim: y_coord, x_dim: x_coord})
+
             # If the user wants individual uncertainty components
             if unc_info == 'components':
                 # Add parameters to xarray for each band
                 for corr in unc_corr.keys():
                     rut.unc_select = list(unc_corr[corr].values())
                     unc = rut.unc_calculation(data_set[band].values, self.band_id[band], data_set.platform)
-                    datasets[band][corr] = xarray.DataArray(
-                        data=unc,
-                        dims=("x", "y"),
-                    )
+                    dataset[corr] = ([y_dim, x_dim], unc)
+
             # If the user wants total uncertainty
             elif unc_info == 'total':
                 rut.unc_select = self.og_rut.unc_select
                 unc = rut.unc_calculation(data_set[band].values, self.band_id[band], data_set.platform)
-                datasets[band]['total'] = xarray.DataArray(
-                    data=unc,
-                    dims=("x", "y"),
-                )
+                dataset['total'] = ([y_dim, x_dim], unc)
             else:
                 raise ValueError(f"Warning: Invalid input: {unc_info}. Options are 'total' and 'components'.")
 
-        return datasets
+            result[band] = dataset
+
+        return result
 
     def return_unc_correlations(self):
         """
@@ -162,7 +168,7 @@ class S2RUT:
         """
         Extract band-specific uncertainty parameters from the provided data_set (eoio specific).
         """
-        self.band_id = {band: index for index, band in enumerate(MEAS_VAR_RES.keys())}
+        # self.band_id = {band: index for index, band in enumerate(MEAS_VAR_RES.keys())}
 
         # Extract band uncertainty information (using eoio)
         band_params = {
