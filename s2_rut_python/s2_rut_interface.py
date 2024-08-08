@@ -1,13 +1,13 @@
 """s2_rut_interface - Sentinel-2A and Sentinel-2B L1 uncertainty calculation class """
 
 from typing import Union, Optional, List, Dict
-import xarray as xarray
+import xarray as xr
 import datetime
 from eoio.utils.dict_tools import *
 from eoio.processors import utils as util
 import sys
 import os
-import numpy as np
+# import numpy as np
 import obsarray
 
 THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
@@ -102,7 +102,7 @@ class S2RUT:
         self.og_rut = srut.S2RutAlgo()
 
     def run_rut(self,
-                data_set: xarray.Dataset,
+                data_set: xr.Dataset,
                 band_names: Union[List[str], str] = None,
                 unc_info: Optional[str] = None,
                 ) -> Dict[str, Dict[str, float]]:
@@ -127,7 +127,7 @@ class S2RUT:
             band_unc_params = self.get_band_unc_parameters(data_set, band)
             rut = MyS2RUTAlgo(band_unc_params)
 
-            dataset = xarray.Dataset(coords={y_dim: y_coord, x_dim: x_coord})
+            dataset = xr.Dataset(coords={y_dim: y_coord, x_dim: x_coord})
 
             # If the user wants individual uncertainty components
             if unc_info == 'components':

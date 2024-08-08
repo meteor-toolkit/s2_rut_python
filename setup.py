@@ -29,8 +29,13 @@ setup(
         "numpy",
         "matplotlib",
         "xarray",
+        "obsarray",
+        "eoio @ git+https://gitlab-ci-token:glpat-sYWV__V2ZQgsLtqAAWys@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
     ],
-    extras_require={"dev": ["pre-commit", "tox", "sphinx", "sphinx_rtd_theme"]},
+    dependency_links=[
+        "git+https://gitlab-ci-token:glpat-sYWV__V2ZQgsLtqAAWys@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
+    ],
+        extras_require={"dev": ["pre-commit", "tox", "sphinx", "sphinx_rtd_theme"]},
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Programming Language :: Python",

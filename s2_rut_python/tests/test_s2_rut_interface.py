@@ -1,22 +1,18 @@
 import datetime
-import os, sys
+# import os, sys
 import unittest
 import unittest.mock as mock
 from unittest.mock import MagicMock
-import xarray
 import xarray as xr
-from s2_rut_python.s2_rut_interface import S2RUT, MyS2RUTAlgo
+from s2_rut_python.s2_rut_interface import S2RUT
 import numpy as np
-import s2_rut_python.s2_rut_interface
-from eoio.utils.dict_tools import get_value
-from eoio.processors.utils import interp_sza_s2
 
-THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
-S2_RUT_DIRECTORY = os.path.join(THIS_DIRECTORY, "snap-rut", "src", "main", "python")
+# THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
+# S2_RUT_DIRECTORY = os.path.join(THIS_DIRECTORY, "snap-rut", "src", "main", "python")
 
-sys.path.insert(0, S2_RUT_DIRECTORY)
-import s2_rut_algo
-import s2_l1_rad_conf
+# sys.path.insert(0, S2_RUT_DIRECTORY)
+# import s2_rut_algo
+# import s2_l1_rad_conf
 
 __author__ = [
     "Rasma Ormane <rasma.ormane@npl.co.uk>",
@@ -24,27 +20,52 @@ __author__ = [
 
 
 class TestS2RUT(unittest.TestCase):
+    def setUp(self):
+        # Create a mock dataset
+        self.mock_dataset = xr.Dataset(
+            data_vars=dict(
+                B01=(['y_60m', 'x_60m'], np.ones((5,5)), {
+                    'PHYSICAL_GAINS': 1,
+                    'SOLAR_IRRADIANCE':{'#text':1},
+                    'ALPHA':1,
+                    'BETA':1,
+                })
+            ),
+            coords=dict(
+                y=(['y_60m'], np.ones(5)),
+                x=(['x_60m'], np.ones(5)),
+            ),
+            attrs={
+                'platform': 'Sentinel-2A',
+                'U': 0.05,
+                'QUANTIFICATION_VALUE': 10000,
+                'DATASTRIP_SENSING_START': np.datetime64("2022-06-01T10:00:00")
+            }
+        )
+
+        self.s2_rut = S2RUT()
 
     @mock.patch('eoio.utils.dict_tools.get_value')
     @mock.patch('s2_rut_python.s2_rut_interface.util.interp_sza_s2')
     @mock.patch('s2_rut_algo.S2RutAlgo')
     def test_get_band_unc_parameters(self, mock_s2_rut_algo, mock_get_value, mock_interp_sza_s2):
-        # create mock xarray dataset
-        mock_ds = MagicMock(spec=xr.Dataset)
-
-        mock_ds['B01'].PHYSICAL_GAINS = 1.0
-        mock_ds['B01'].SOLAR_IRRADIANCE = {'#text': 1.0}
-        mock_ds['B01'].ALPHA = 1.0
-        mock_ds['B01'].BETA = 1.0
-        mock_ds.attrs = {
-            'U': 1.0,
-            'QUANTIFICATION_VALUE': 1.0,
-            'DATASTRIP_SENSING_START': datetime.datetime(2023, 1, 1, 10, 00),
-        }
-        mock_ds.platform = 'Sentinel-2A'
-
-        # Set up the mock return values for get_value and interp_sza_s2
-        mock_get_value.side_effect = lambda attrs, key: attrs.get(key, None)
+        # # create mock xarray dataset
+        # mock_ds = MagicMock(spec=xr.Dataset)
+        #
+        # mock_ds['B01'].PHYSICAL_GAINS = 1.0
+        # mock_ds['B01'].SOLAR_IRRADIANCE = {'#text': 1.0}
+        # mock_ds['B01'].ALPHA = 1.0
+        # mock_ds['B01'].BETA = 1.0
+        # mock_ds.attrs = {
+        #     'U': 1.0,
+        #     'QUANTIFICATION_VALUE': 1.0,
+        #     'DATASTRIP_SENSING_START': datetime.datetime(2023, 1, 1, 10, 00),
+        # }
+        # mock_ds.platform = 'Sentinel-2A'
+        #
+        # # Set up the mock return values for get_value and interp_sza_s2
+        # mock_get_value.side_effect = lambda attrs, key: attrs.get(key, None)
+        mock_ds = self.mock_dataset
         mock_interp_sza_s2.return_value = np.ones((10, 10))
 
         # Set up the mock for the S2RutAlgo class attributes
@@ -100,32 +121,6 @@ class TestS2RUT(unittest.TestCase):
         self.assertIn('random', unc_corr)
         self.assertIn('structured', unc_corr)
         self.assertIn('systematic', unc_corr)
-
-
-    def setUp(self):
-        # Create a mock dataset
-        self.mock_dataset = xr.Dataset(
-            data_vars=dict(
-                B01=(['y_60m', 'x_60m'], np.ones((5,5)), {
-                    'PHYSICAL_GAINS': 1,
-                    'SOLAR_IRRADIANCE':{'#text':1},
-                    'ALPHA':1,
-                    'BETA':1,
-                })
-            ),
-            coords=dict(
-                y=(['y_60m'], np.ones(5)),
-                x=(['x_60m'], np.ones(5)),
-            ),
-            attrs={
-                'platform': 'Sentinel-2A',
-                'U': 0.05,
-                'QUANTIFICATION_VALUE': 10000,
-                'DATASTRIP_SENSING_START': np.datetime64("2022-06-01T10:00:00")
-            }
-        )
-
-        self.s2_rut = S2RUT()
 
     @mock.patch('s2_rut_python.s2_rut_interface.S2RUT.get_band_unc_parameters')
     @mock.patch('s2_rut_python.s2_rut_interface.MyS2RUTAlgo.unc_calculation')
