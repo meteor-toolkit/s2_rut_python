@@ -39,7 +39,7 @@ class TestS2RUT(unittest.TestCase):
                 'platform': 'Sentinel-2A',
                 'U': 0.05,
                 'QUANTIFICATION_VALUE': 10000,
-                'DATASTRIP_SENSING_START': np.datetime64("2022-06-01T10:00:00")
+                'DATASTRIP_SENSING_START': datetime.datetime(2015, 6, 1, 10, 00),#np.datetime64("2022-06-01T10:00:00")
             }
         )
 
@@ -48,34 +48,20 @@ class TestS2RUT(unittest.TestCase):
     @mock.patch('eoio.utils.dict_tools.get_value')
     @mock.patch('s2_rut_python.s2_rut_interface.util.interp_sza_s2')
     @mock.patch('s2_rut_algo.S2RutAlgo')
-    def test_get_band_unc_parameters(self, mock_s2_rut_algo, mock_get_value, mock_interp_sza_s2):
-        # # create mock xarray dataset
-        # mock_ds = MagicMock(spec=xr.Dataset)
-        #
-        # mock_ds['B01'].PHYSICAL_GAINS = 1.0
-        # mock_ds['B01'].SOLAR_IRRADIANCE = {'#text': 1.0}
-        # mock_ds['B01'].ALPHA = 1.0
-        # mock_ds['B01'].BETA = 1.0
-        # mock_ds.attrs = {
-        #     'U': 1.0,
-        #     'QUANTIFICATION_VALUE': 1.0,
-        #     'DATASTRIP_SENSING_START': datetime.datetime(2023, 1, 1, 10, 00),
-        # }
-        # mock_ds.platform = 'Sentinel-2A'
-        #
+    def test_get_band_unc_parameters(self, mock_s2_rut_algo, mock_interp_sza_s2, mock_get_value):
         # # Set up the mock return values for get_value and interp_sza_s2
-        # mock_get_value.side_effect = lambda attrs, key: attrs.get(key, None)
+        mock_get_value.side_effect = lambda attrs, key: attrs.get(key, None)
         mock_ds = self.mock_dataset
-        mock_interp_sza_s2.return_value = np.ones((10, 10))
+        mock_interp_sza_s2.return_value = 1
 
         # Set up the mock for the S2RutAlgo class attributes
         mock_algo_instance = mock_s2_rut_algo.return_value
-        mock_algo_instance.u_diff_cos = 1.0
-        mock_algo_instance.u_diff_k = 1.0
-        mock_algo_instance.u_ADC = 1.0
-        mock_algo_instance.u_gamma = 1.0
-        mock_algo_instance.k = 1.0
-        mock_u_diff_temp_rate = {"Sentinel-2A": [1.0]}
+        mock_algo_instance.u_diff_cos = 2.0
+        mock_algo_instance.u_diff_k = 3.0
+        mock_algo_instance.u_ADC = 4.0
+        mock_algo_instance.u_gamma = 5.0
+        mock_algo_instance.k = 6.0
+        mock_u_diff_temp_rate = {"Sentinel-2A": [7.0]}
 
         with mock.patch('s2_rut_python.s2_rut_interface.TIME_INIT',
                         {'Sentinel-2A': datetime.datetime(2015, 6, 23, 10, 00)}):
@@ -91,23 +77,24 @@ class TestS2RUT(unittest.TestCase):
                 ]
 
                 # Check if all expected keys are in the result dictionary
+                print(result)
                 for key in expected_keys:
                     self.assertIn(key, result)
 
                 expected_values = {
                     'a': 1.0,
                     'e_sun': 1.0,
-                    'u_sun': 1.0,
-                    'tecta': np.ones((10, 10)), # cannot get tecta to return as a 2d array (or any value) that isn't a class instance
-                    'quant': 1.0,
+                    'u_sun': 0.05,
+                    'tecta': 1.0,
+                    'quant': 10000,
                     'alpha': 1.0,
                     'beta': 1.0,
-                    'u_diff_cos': 1.0,
-                    'u_diff_k': 1.0,
-                    'u_diff_temp': 7.532935146264837,
-                    'u_ADC': 1.0,
-                    'u_gamma': 1.0,
-                    'k': 1.0
+                    'u_diff_cos': 2.0,
+                    'u_diff_k': 3.0,
+                    'u_diff_temp': 7*-0.06023271731690623,
+                    'u_ADC': 4.0,
+                    'u_gamma': 5.0,
+                    'k': 6.0,
                 }
 
                 for key in expected_values:
