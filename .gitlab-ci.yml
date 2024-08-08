@@ -1,5 +1,5 @@
 # Default image, if not specified
-image: "python:3.8"
+image: "python:3.10"
 
 stages:
   - Build Documentation
@@ -77,20 +77,10 @@ black:
   coverage: '/^TOTAL.+?(\d+\%)$/'
   needs: []
 
-tox-3.6:
+tox-3.10:
     extends: ".tox"
     stage: "Test"
-    image: "python:3.6"
-
-tox-3.7:
-    extends: ".tox"
-    stage: "Test"
-    image: "python:3.7"
-
-tox-3.8:
-    extends: ".tox"
-    stage: "Test"
-    image: "python:3.8"
+    image: "python:3.10"
   
 tox_slowtests:
     extends: .py_venv
