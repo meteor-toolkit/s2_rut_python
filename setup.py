@@ -30,10 +30,10 @@ setup(
         "matplotlib",
         "xarray",
         "obsarray",
-        "eoio @ git+https://gitlab-ci-token:glpat-sYWV__V2ZQgsLtqAAWys@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
+        "eoio @ git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
     ],
     dependency_links=[
-        "git+https://gitlab-ci-token:glpat-sYWV__V2ZQgsLtqAAWys@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
+        "git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
     ],
         extras_require={"dev": ["pre-commit", "tox", "sphinx", "sphinx_rtd_theme"]},
     classifiers=[
