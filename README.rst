@@ -8,15 +8,6 @@ Usage
 Files are read into an xarray format for use with our other tools. Eoio capabilities are used for accessing  and
 extracting the metadata, used for calculating the uncertainties.
 
-User specifies three components::
-
-    s2rut=S2RUT()
-    test = s2rut.run_rut(
-        data_set=xarray_dataset
-        band_names=['list of band names']
-        unc_info='output type'
-       )
-
 Band names takes in one band or a list of **Sentinel-2 band names**: B01, B02, B03, B03, B04, B05, B06, B07, B08, B8A, B09,
 B10, B11, B12.
 
@@ -26,16 +17,19 @@ There are two types of possible uncertainty information types: **'total'** which
 Each individual type of components is categorised according to Gorrono *et.al.* (2017).
 
 
+Usage of this module is as follows ::
 
+    s2rut = S2RUT()
+    test = s2rut.run_rut(
+        data_set=s2_ds,
+        band_names=['B01'],
+        unc_info='total')
 
 Example
 =======
 An example illustrating the circumstances in which your code would normally be used is available in run_s2rut_example.py.
 Two different input cases are demonstrated: Sentinel-2A and Sentinel-2B in .SAFE (Standard Archive Format for Europe)
 data format.
-
-
-
 
 Virtual environment
 -------------------
@@ -79,9 +73,7 @@ Licence
 Authors
 -------
 
-s2_rut_interface was written by `Rasma Ormane <rasma.ormane@npl.co.uk>`_.
-
-s2_rut_python` was written by `Sam Hunt <sam.hunt@npl.co.uk>`_.
+s2_rut_python has been developed by `Rasma Ormane <rasma.ormane@npl.co.uk>`_. `Sam Hunt <sam.hunt@npl.co.uk>`_. and `Maddie Stedman <maddie.stedman@npl.co.uk>`_.
 
 Citations
 -------

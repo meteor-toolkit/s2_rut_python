@@ -24,7 +24,8 @@ __author__ = [
 ]
 
 __all__ = [
-    "S2RUT"
+    "S2RUT",
+    "MyS2RUTAlgo"
 ]
 
 MEAS_VAR_RES = {
@@ -150,7 +151,7 @@ class S2RUT:
 
     def return_unc_correlations(self):
         """
-        Return dictionary of uncertainty contributions to include, by default return true for all.
+        Returns dictionary of uncertainty correlations, organising them as random, systematic, and structured.
         """
 
         corr_types_all = {}
@@ -168,7 +169,6 @@ class S2RUT:
         """
         Extract band-specific uncertainty parameters from the provided data_set (eoio specific).
         """
-        # self.band_id = {band: index for index, band in enumerate(MEAS_VAR_RES.keys())}
 
         # Extract band uncertainty information (using eoio)
         band_params = {
