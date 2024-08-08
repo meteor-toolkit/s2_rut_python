@@ -25,7 +25,11 @@ setup(
     description="Pure Python port of Javi's Sentinel-2 radiometric uncertainty tool",
     long_description=read("README.rst"),
     packages=find_packages(exclude=("tests",)),
-    install_requires=["numpy"],
+    install_requires=[
+        "numpy",
+        "matplotlib",
+        "xarray",
+    ],
     extras_require={"dev": ["pre-commit", "tox", "sphinx", "sphinx_rtd_theme"]},
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
