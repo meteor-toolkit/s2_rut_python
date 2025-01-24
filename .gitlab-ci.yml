@@ -61,7 +61,17 @@ black:
   allow_failure: true
   needs: []
 
-
+mypy:
+  image: python:3.10
+#    name: grktsh/mypy
+#    entrypoint: [ "" ]
+  stage: Static Analysis
+  script:
+    - pip install mypy --quiet
+    - mypy s2_rut_python --install-types --non-interactive --exclude s2_rut_python
+    - mypy s2_rut_python --exclude s2_rut_python
+  allow_failure: true
+  needs: [ ]
 
 ### Tests ###
 

@@ -1,8 +1,9 @@
 """run_s2rut_example - Example usage script for interface functions"""
 
 import os
+import socket
 from eoio.interface import read
-from s2_rut_interface import S2RUT
+from s2_rut_python.interface import S2RUT
 
 __author__ = "Rasma Ormane <rasma.ormane@npl.co.uk>"
 
@@ -58,3 +59,7 @@ test = s2rut.run_rut(
 )
 
 print(test)
+
+
+if __name__ == '__main__':
+    pass

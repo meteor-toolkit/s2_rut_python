@@ -20,21 +20,21 @@ setup(
     name="s2_rut_python",
     url="http://gitlab.npl.co.uk/eco/tools/s2_rut_python",
     license="None",
-    author="Sam Hunt",
-    author_email="sam.hunt@npl.co.uk",
+    author="Rasma Ormane",
+    author_email="rasma.ormane@npl.co.uk",
     description="Pure Python port of Javi's Sentinel-2 radiometric uncertainty tool",
     long_description=read("README.rst"),
     packages=find_packages(exclude=("tests",)),
     install_requires=[
-        "eoio @ git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
+        # "eoio @ git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
         "numpy",
         "matplotlib",
         "xarray",
         "obsarray",
     ],
-    dependency_links=[
-        "git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
-    ],
+    # dependency_links=[
+    #     "git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
+    # ],
     extras_require={"dev": ["pre-commit", "tox", "sphinx", "sphinx_rtd_theme"]},
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",

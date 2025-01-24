@@ -1,10 +1,10 @@
 """ Utilities functions for processors"""
 
 import numpy as np
-from scipy.interpolate import griddata
+from scipy.interpolate import griddata  # type: ignore[import-untyped]
 
 
-def interp_sza_s2(ds, target_resolution, intrp_method='linear'):
+def interp_sza_s2(ds, target_resolution, intrp_method="linear"):
     """
     Interpolate the SZA from 5000m to target resolution
 
@@ -51,7 +51,7 @@ def interp_sza_s2(ds, target_resolution, intrp_method='linear'):
         (x_source_grid.flatten(), y_source_grid.flatten()),
         data.flatten(),
         (x_output_grid, y_output_grid),
-        method=intrp_method
+        method=intrp_method,
     )
 
     return output_data
