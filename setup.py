@@ -27,14 +27,16 @@ setup(
     packages=find_packages(exclude=("tests",)),
     install_requires=[
         # "eoio @ git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
+        "processor_tools @ git+https://gitlab-ci-token:glpat-sYWV__V2ZQgsLtqAAWys@gitlab.npl.co.uk/eco/tools/processor_tools#egg=processor_tools",
         "numpy",
         "matplotlib",
         "xarray",
         "obsarray",
     ],
-    # dependency_links=[
-    #     "git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
-    # ],
+    dependency_links=[
+        "git+https://gitlab-ci-token:glpat-sYWV__V2ZQgsLtqAAWys@gitlab.npl.co.uk/eco/tools/processor_tools#egg=processor_tools",
+        #     "git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/eoio#egg=eoio",
+    ],
     extras_require={"dev": ["pre-commit", "tox", "sphinx", "sphinx_rtd_theme"]},
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",

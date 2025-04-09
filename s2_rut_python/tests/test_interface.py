@@ -141,7 +141,7 @@ class TestS2RUT(unittest.TestCase):
         self, mock_unc_calculation, mock_get_band_unc_parameters
     ):
         # Mock the return value of the unc_calculation method
-        mock_unc_calculation.return_value = np.random.rand(5, 5)
+        mock_unc_calculation.return_value = 3*np.ones((5,5))
         mock_get_band_unc_parameters.return_value = {
             "a": 1.0,
             "e_sun": 1.0,
@@ -166,9 +166,25 @@ class TestS2RUT(unittest.TestCase):
             self.mock_dataset, band_names, components
         )  # mock_dataset keeps giving attribute errors, as the xarray read into the code is very complex and has a lot of attributes, coords, values needed to run the method
 
-        self.assertIn("B01", result)
-        self.assertIn("total", result["B01"])
-        self.assertEqual(result["B01"]["total"].shape, (5, 5))
+        xr.testing.assert_equal(
+            result,
+            xr.Dataset(
+                data_vars={
+                    'B01': (['y_60m', 'x_60m'], np.ones((5,5)), {'PHYSICAL_GAINS': 1, 'SOLAR_IRRADIANCE': {'#text':1}, 'ALPHA':1, 'BETA':1, 'unc_comps':['u_total_B01']}),
+                    'u_total_B01': (['y_60m', 'x_60m'], 3*np.ones((5,5))),
+                },
+                coords={'y': (['y_60m'], np.ones(5)),
+                    'x': (['x_60m'], np.ones(5)),
+                },
+                attrs={
+                    'platform': 'Sentinel-2A',
+                    'U': 0.05,
+                    'QUANTIFICATION_VALUE': 10000,
+                    'DATASTRIP_SENSING_START': '2015-06-01 10:00:00',
+                }
+            )
+        )
+
         mock_get_band_unc_parameters.assert_called_once_with(self.mock_dataset, "B01")
         mock_unc_calculation.assert_called_once()
 
@@ -178,7 +194,7 @@ class TestS2RUT(unittest.TestCase):
         self, mock_unc_calculation, mock_get_band_unc_parameters
     ):
         # Mock the return value of the unc_calculation method
-        mock_unc_calculation.return_value = np.random.rand(5, 5)
+        mock_unc_calculation.return_value = 2*np.ones((5,5))
         mock_get_band_unc_parameters.return_value = {
             "a": 1.0,
             "e_sun": 1.0,
@@ -199,13 +215,26 @@ class TestS2RUT(unittest.TestCase):
         components = True
         result = self.s2_rut.run(self.mock_dataset, band_names, components)
 
-        self.assertIn("B01", result)
-        self.assertIn("structured", result["B01"])
-        self.assertIn("systematic", result["B01"])
-        self.assertIn("random", result["B01"])
-        self.assertEqual(result["B01"]["structured"].shape, (5, 5))
-        self.assertEqual(result["B01"]["systematic"].shape, (5, 5))
-        self.assertEqual(result["B01"]["random"].shape, (5, 5))
+        xr.testing.assert_equal(
+            result,
+            xr.Dataset(
+                data_vars={
+                    'B01': (['y_60m', 'x_60m'], np.ones((5,5)), {'PHYSICAL_GAINS': 1, 'SOLAR_IRRADIANCE': {'#text':1}, 'ALPHA':1, 'BETA':1, 'unc_comps':['u_systematic_B01', 'u_random_B01', 'u_structured_B01']}),
+                    'u_structured_B01': (['y_60m', 'x_60m'], 2*np.ones((5,5))),
+                    'u_systematic_B01': (['y_60m', 'x_60m'], 2 * np.ones((5, 5))),
+                    'u_random_B01': (['y_60m', 'x_60m'], 2 * np.ones((5, 5))),
+                },
+                coords={'y': (['y_60m'], np.ones(5)),
+                    'x': (['x_60m'], np.ones(5)),
+                },
+                attrs={
+                    'platform': 'Sentinel-2A',
+                    'U': 0.05,
+                    'QUANTIFICATION_VALUE': 10000,
+                    'DATASTRIP_SENSING_START': '2015-06-01 10:00:00',
+                }
+            )
+        )
 
         np.testing.assert_equal(mock_unc_calculation.call_args[0][0], np.ones((5, 5)))
         self.assertEqual(mock_unc_calculation.call_args[0][1], 0)
