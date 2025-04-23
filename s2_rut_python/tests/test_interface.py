@@ -31,10 +31,12 @@ class TestS2RUT(unittest.TestCase):
                     ["y_60m", "x_60m"],
                     np.ones((5, 5)),
                     {
-                        "PHYSICAL_GAINS": 1,
-                        "SOLAR_IRRADIANCE": {"#text": 1},
-                        "ALPHA": 1,
-                        "BETA": 1,
+                        "product_metadata": {
+                            "PHYSICAL_GAINS": 1,
+                            "SOLAR_IRRADIANCE": {"#text": 1},
+                            "ALPHA": 1,
+                            "BETA": 1,
+                        }
                     },
                 )
             ),
@@ -44,11 +46,13 @@ class TestS2RUT(unittest.TestCase):
             ),
             attrs={
                 "platform": "Sentinel-2A",
-                "U": 0.05,
-                "QUANTIFICATION_VALUE": 10000,
-                "DATASTRIP_SENSING_START": datetime.datetime(
-                    2015, 6, 1, 10, 00
-                ),  # np.datetime64("2022-06-01T10:00:00")
+                "product_metadata": {
+                    "U": 0.05,
+                    "QUANTIFICATION_VALUE": 10000,
+                    "DATASTRIP_SENSING_START": datetime.datetime(
+                        2015, 6, 1, 10, 00
+                    ),  # np.datetime64("2022-06-01T10:00:00")
+                },
             },
         )
 
@@ -135,73 +139,7 @@ class TestS2RUT(unittest.TestCase):
 
     @mock.patch("s2_rut_python.interface.S2RUT.get_band_unc_parameters")
     @mock.patch("s2_rut_python.interface.MyS2RUTAlgo.unc_calculation")
-    def test_run_ComponentsFalse(
-        self, mock_unc_calculation, mock_get_band_unc_parameters
-    ):
-        # Mock the return value of the unc_calculation method
-        mock_unc_calculation.return_value = 3 * np.ones((5, 5))
-        mock_get_band_unc_parameters.return_value = {
-            "a": 1.0,
-            "e_sun": 1.0,
-            "u_sun": 1.0,
-            "tecta": np.ones(
-                (10, 10)
-            ),  # cannot get tecta to return as a 2d array (or any value) that isn't a class instance
-            "quant": 1.0,
-            "alpha": 1.0,
-            "beta": 1.0,
-            "u_diff_cos": 1.0,
-            "u_diff_k": 1.0,
-            "u_diff_temp": 7.532935146264837,
-            "u_ADC": 1.0,
-            "u_gamma": 1.0,
-            "k": 1.0,
-        }
-        band_names = ["B01"]
-        components = False
-
-        result = self.s2_rut.run(
-            self.mock_dataset, band_names, components
-        )  # mock_dataset keeps giving attribute errors, as the xarray read into the code is very complex and has a lot of attributes, coords, values needed to run the method
-
-        xr.testing.assert_equal(
-            result,
-            xr.Dataset(
-                data_vars={
-                    "B01": (
-                        ["y_60m", "x_60m"],
-                        np.ones((5, 5)),
-                        {
-                            "PHYSICAL_GAINS": 1,
-                            "SOLAR_IRRADIANCE": {"#text": 1},
-                            "ALPHA": 1,
-                            "BETA": 1,
-                            "unc_comps": ["u_total_B01"],
-                        },
-                    ),
-                    "u_total_B01": (["y_60m", "x_60m"], 3 * np.ones((5, 5))),
-                },
-                coords={
-                    "y": (["y_60m"], np.ones(5)),
-                    "x": (["x_60m"], np.ones(5)),
-                },
-                attrs={
-                    "platform": "Sentinel-2A",
-                    "U": 0.05,
-                    "QUANTIFICATION_VALUE": 10000,
-                    "DATASTRIP_SENSING_START": "2015-06-01 10:00:00",
-                },
-            ),
-        )
-
-        mock_get_band_unc_parameters.assert_called_once_with(self.mock_dataset, "B01")
-        mock_unc_calculation.assert_called_once()
-
-    @mock.patch("s2_rut_python.interface.S2RUT.get_band_unc_parameters")
-    @mock.patch("s2_rut_python.interface.MyS2RUTAlgo.unc_calculation")
-    def test_run_ComponentsTrue(
-        self, mock_unc_calculation, mock_get_band_unc_parameters
-    ):
+    def test_run(self, mock_unc_calculation, mock_get_band_unc_parameters):
         # Mock the return value of the unc_calculation method
         mock_unc_calculation.return_value = 2 * np.ones((5, 5))
         mock_get_band_unc_parameters.return_value = {
@@ -221,8 +159,7 @@ class TestS2RUT(unittest.TestCase):
         }
 
         band_names = ["B01"]
-        components = True
-        result = self.s2_rut.run(self.mock_dataset, band_names, components)
+        result = self.s2_rut.run(self.mock_dataset, band_names)
 
         xr.testing.assert_equal(
             result,
@@ -262,37 +199,6 @@ class TestS2RUT(unittest.TestCase):
         self.assertEqual(mock_unc_calculation.call_args[0][1], 0)
         self.assertEqual(mock_unc_calculation.call_args[0][2], "Sentinel-2A")
         self.assertEqual(mock_unc_calculation.call_count, 2)
-
-    # @mock.patch('s2_rut_python.interface.MyS2RUTAlgo.__init__', return_value=None)  # Prevent actual initialization
-    # @mock.patch('s2_rut_python.interface.MyS2RUTAlgo.unc_calculation')
-    # def test_run_parameter_overwrite(self, mock_unc_calculation, mock_init):
-    #     # Mock the return value of the unc_calculation method
-    #     mock_unc_calculation.return_value = np.random.rand(5, 5)
-    #     band_names = ["B01"]
-    #     components = False
-    #     result = self.s2_rut.run(self.mock_dataset, band_names, components)
-    #     # Verify that MyS2RUTAlgo was initialized with the correct parameters
-    #     self.assertTrue(mock_init.called)
-    #     init_args = mock_init.call_args[0][0]  # First argument to __init__
-    #     self.assertIsInstance(init_args, dict)  # Ensure parameters are passed as a dictionary
-    #     self.assertIn('a', init_args)
-    #     self.assertIn('e_sun', init_args)
-    #     self.assertIn('u_diff_k', init_args)
-    #     self.assertIn("B01", result)
-    #     self.assertIn(False, result["B01"])
-    #     self.assertEqual(result["B01"].shape, (5, 5))
-
-    @mock.patch("s2_rut_python.interface.S2RUT.get_band_unc_parameters")
-    @mock.patch("s2_rut_python.interface.S2RUT.return_unc_components")
-    def test_run_ComponentsInvalid(
-        self, mock_return_unc_components, mock_get_band_unc_parameters
-    ):
-        band_names = ["B01"]
-        components = "invalid"
-        with self.assertRaises(ValueError):
-            self.s2_rut.run(self.mock_dataset, band_names, components)
-        mock_return_unc_components.assert_called_once()
-        mock_get_band_unc_parameters.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -172,7 +172,6 @@ class S2RUT:
                     {"err_corr": err_corr_def, "pdf_shape": "gaussian"},
                 )
 
-
         return ds
 
     def return_unc_components(self):
@@ -198,18 +197,20 @@ class S2RUT:
 
         # Extract band uncertainty information (using eoio)
         band_params = {
-            "a": get_value(ds[band].attrs['product_metadata'], 'PHYSICAL_GAINS'),
-            "e_sun": get_value(ds[band].attrs['product_metadata']['SOLAR_IRRADIANCE'], "#text"),
+            "a": get_value(ds[band].attrs["product_metadata"], "PHYSICAL_GAINS"),
+            "e_sun": get_value(
+                ds[band].attrs["product_metadata"]["SOLAR_IRRADIANCE"], "#text"
+            ),
             "u_sun": get_value(ds.attrs, "U"),
             "tecta": util.interp_sza_s2(ds, MEAS_VAR_RES[band]),
             "quant": get_value(ds.attrs, "QUANTIFICATION_VALUE"),
-            "alpha": get_value(ds[band].attrs['product_metadata'], 'ALPHA'),
-            "beta": get_value(ds[band].attrs['product_metadata'], 'BETA'),
+            "alpha": get_value(ds[band].attrs["product_metadata"], "ALPHA"),
+            "beta": get_value(ds[band].attrs["product_metadata"], "BETA"),
             "u_diff_cos": self.og_rut.u_diff_cos,
             "u_diff_k": self.og_rut.u_diff_k,
             "u_diff_temp": (
                 get_value(ds.attrs, "DATASTRIP_SENSING_START")
-                - TIME_INIT[ds.attrs['platform']]
+                - TIME_INIT[ds.attrs["platform"]]
             ).days
             / 365.25
             * conf.u_diff_temp_rate[ds.platform][self.band_id[band]],
