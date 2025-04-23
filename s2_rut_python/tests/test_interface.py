@@ -103,7 +103,6 @@ class TestS2RUT(unittest.TestCase):
                 ]
 
                 # Check if all expected keys are in the result dictionary
-                print(result)
                 for key in expected_keys:
                     self.assertIn(key, result)
 
@@ -130,9 +129,8 @@ class TestS2RUT(unittest.TestCase):
         s2rut = S2RUT()
         unc_comp = s2rut.return_unc_components()
 
-        # Check if the returned dictionary is structured as expected
+        # Check if the returned dictionary is as expected
         self.assertIn("random", unc_comp)
-        self.assertIn("structured", unc_comp)
         self.assertIn("systematic", unc_comp)
 
     @mock.patch("s2_rut_python.interface.S2RUT.get_band_unc_parameters")
@@ -241,11 +239,9 @@ class TestS2RUT(unittest.TestCase):
                             "unc_comps": [
                                 "u_systematic_B01",
                                 "u_random_B01",
-                                "u_structured_B01",
                             ],
                         },
                     ),
-                    "u_structured_B01": (["y_60m", "x_60m"], 2 * np.ones((5, 5))),
                     "u_systematic_B01": (["y_60m", "x_60m"], 2 * np.ones((5, 5))),
                     "u_random_B01": (["y_60m", "x_60m"], 2 * np.ones((5, 5))),
                 },
@@ -265,7 +261,7 @@ class TestS2RUT(unittest.TestCase):
         np.testing.assert_equal(mock_unc_calculation.call_args[0][0], np.ones((5, 5)))
         self.assertEqual(mock_unc_calculation.call_args[0][1], 0)
         self.assertEqual(mock_unc_calculation.call_args[0][2], "Sentinel-2A")
-        self.assertEqual(mock_unc_calculation.call_count, 3)
+        self.assertEqual(mock_unc_calculation.call_count, 2)
 
     # @mock.patch('s2_rut_python.interface.MyS2RUTAlgo.__init__', return_value=None)  # Prevent actual initialization
     # @mock.patch('s2_rut_python.interface.MyS2RUTAlgo.unc_calculation')
