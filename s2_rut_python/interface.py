@@ -57,17 +57,17 @@ COMPONENTS = {
         "Diffuser-straylight_residual",
         "Diffuser-absolute_knowledge",
         "Diffuser-temporal_knowledge",
-        "DS_stability", # correlated along dims spatial & temporal - structured along spectral dim
+        "DS_stability",  # correlated along dims spatial & temporal - structured along spectral dim
         "Diffuser-cosine_effect",
     ],
-    "random": ["OOF_straylight-random", # random in spectral & spatial, systematic in temporal
-               "Instrument_noise", # random in temporal dim. random in spectral & spatial dims "under the assumption that noise introduced by the post-amplification is not dominant"
-               "ADC_quantisation", #
-               "Gamma_knowledge", # random in spatial dim, fully correlated in temporal & spectral dims
-               "L1C_image_quantisation",
-               ],
-    "structured": [
+    "random": [
+        "OOF_straylight-random",  # random in spectral & spatial, systematic in temporal
+        "Instrument_noise",  # random in temporal dim. random in spectral & spatial dims "under the assumption that noise introduced by the post-amplification is not dominant"
+        "ADC_quantisation",  #
+        "Gamma_knowledge",  # random in spatial dim, fully correlated in temporal & spectral dims
+        "L1C_image_quantisation",
     ],
+    "structured": [],
 }
 
 
@@ -158,7 +158,7 @@ class S2RUT:
                 for comp in unc_comp.keys():
                     rut.unc_select = list(unc_comp[comp].values())
                     unc = rut.unc_calculation(
-                        ds[band].values, self.band_id[band], ds.attrs.get('platform')
+                        ds[band].values, self.band_id[band], ds.attrs.get("platform")
                     )
                     err_corr_def = [
                         {
@@ -178,7 +178,7 @@ class S2RUT:
             elif components is False:
                 rut.unc_select = self.og_rut.unc_select
                 unc = rut.unc_calculation(
-                    ds[band].values, self.band_id[band], ds.attrs.get('platform')
+                    ds[band].values, self.band_id[band], ds.attrs.get("platform")
                 )
                 err_corr_def = [
                     {
