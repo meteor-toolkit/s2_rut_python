@@ -152,51 +152,26 @@ class S2RUT:
             band_unc_params = self.get_band_unc_parameters(ds, band)
             rut = MyS2RUTAlgo(band_unc_params)
 
-            # If the user selects individual uncertainty components
-            if components is True:
-                # Add parameters to ds for each band
-                for comp in unc_comp.keys():
-                    rut.unc_select = list(unc_comp[comp].values())
-                    unc = rut.unc_calculation(
-                        ds[band].values, self.band_id[band], ds.attrs.get("platform")
-                    )
-                    err_corr_def = [
-                        {
-                            "dim": [ds[band].dims],
-                            "form": comp,
-                            "params": [],
-                            "units": ds[band].attrs.get("units"),
-                        },
-                    ]
-                    ds.unc[band][f"u_{comp}_{band}"] = (
-                        ds[band].dims,
-                        unc,
-                        {"err_corr": err_corr_def, "pdf_shape": "gaussian"},
-                    )
-
-            # If the user selects total uncertainty
-            elif components is False:
-                rut.unc_select = self.og_rut.unc_select
+            # Add parameters to ds for each band
+            for comp in unc_comp.keys():
+                rut.unc_select = list(unc_comp[comp].values())
                 unc = rut.unc_calculation(
                     ds[band].values, self.band_id[band], ds.attrs.get("platform")
                 )
                 err_corr_def = [
                     {
                         "dim": [ds[band].dims],
-                        "form": "total",
+                        "form": comp,
                         "params": [],
                         "units": ds[band].attrs.get("units"),
                     },
                 ]
-                ds.unc[band][f"u_total_{band}"] = (
+                ds.unc[band][f"u_{comp}_{band}"] = (
                     ds[band].dims,
                     unc,
                     {"err_corr": err_corr_def, "pdf_shape": "gaussian"},
                 )
-            else:
-                raise ValueError(
-                    f"Warning: Invalid input for 'components': {components}. Options are True/False."
-                )
+
 
         return ds
 
@@ -216,28 +191,28 @@ class S2RUT:
 
         return comp_types_all
 
-    def get_band_unc_parameters(self, data_set, band):
+    def get_band_unc_parameters(self, ds, band):
         """
         Extract band-specific uncertainty parameters from the provided data_set (eoio specific).
         """
 
         # Extract band uncertainty information (using eoio)
         band_params = {
-            "a": data_set[band].PHYSICAL_GAINS,
-            "e_sun": data_set[band].SOLAR_IRRADIANCE["#text"],
-            "u_sun": get_value(data_set.attrs, "U"),
-            "tecta": util.interp_sza_s2(data_set, MEAS_VAR_RES[band]),
-            "quant": get_value(data_set.attrs, "QUANTIFICATION_VALUE"),
-            "alpha": data_set[band].ALPHA,
-            "beta": data_set[band].BETA,
+            "a": get_value(ds[band].attrs['product_metadata'], 'PHYSICAL_GAINS'),
+            "e_sun": get_value(ds[band].attrs['product_metadata']['SOLAR_IRRADIANCE'], "#text"),
+            "u_sun": get_value(ds.attrs, "U"),
+            "tecta": util.interp_sza_s2(ds, MEAS_VAR_RES[band]),
+            "quant": get_value(ds.attrs, "QUANTIFICATION_VALUE"),
+            "alpha": get_value(ds[band].attrs['product_metadata'], 'ALPHA'),
+            "beta": get_value(ds[band].attrs['product_metadata'], 'BETA'),
             "u_diff_cos": self.og_rut.u_diff_cos,
             "u_diff_k": self.og_rut.u_diff_k,
             "u_diff_temp": (
-                get_value(data_set.attrs, "DATASTRIP_SENSING_START")
-                - TIME_INIT[data_set.platform]
+                get_value(ds.attrs, "DATASTRIP_SENSING_START")
+                - TIME_INIT[ds.attrs['platform']]
             ).days
             / 365.25
-            * conf.u_diff_temp_rate[data_set.platform][self.band_id[band]],
+            * conf.u_diff_temp_rate[ds.platform][self.band_id[band]],
             "u_ADC": self.og_rut.u_ADC,
             "u_gamma": self.og_rut.u_gamma,
             "k": self.og_rut.k,

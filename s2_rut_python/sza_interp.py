@@ -37,8 +37,8 @@ def interp_sza_s2(ds, target_resolution, intrp_method="linear"):
     x_output_grid, y_output_grid = np.meshgrid(x_output, y_output)
 
     # get solar zenith angle data from dataset
-    if "Zenith_Sun_Angles" in ds:
-        data = ds["Zenith_Sun_Angles"].data
+    if "solar_zenith_angle" in ds:
+        data = ds["solar_zenith_angle"].data
     elif "Zenith_Sun_Angles_Grid" in ds:
         data = ds["Zenith_Sun_Angles_Grid"].data
     else:

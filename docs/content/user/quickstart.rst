@@ -97,8 +97,6 @@ S2-RUT plugin tool.
 Initially, the reason for was thought to be due to solar zenith angle interpolation methods used: **linear** for eoio
 and **nearest** for SNAP.
 
-In its full form, S2-RUT It is a plugin for S
-
 The **s2_rut_interface** module provides the `S2RUT` class for calculating radiometric uncertainty in Sentinel-2 data.
 This class interfaces with the `MyS2RUTAlgo` class, which extends functionality from `S2RutAlgo` in the `s2_rut_algo`
 module.
@@ -111,11 +109,10 @@ Input Parameters
 
 There are three input parameters that are required to run the s2_rut_interface module:
 
-* data_set: satellite data from a satellite product (Sentinel-2A or Sentinel-2B)
+* ds: satellite data from a satellite product (Sentinel-2A or Sentinel-2B)
 * band_names: desired bands
-* unc_info: desired uncertainty information
 
-data_set
+ds
 ^^^^^^^^^^^^^
 
 Satellite data set must be read into an :py:class:`xarray.Dataset`. All bands of interest must be read in, before calling the **s2_rut_interface** module.
@@ -132,24 +129,6 @@ Band names are provided as a list, where either one band can be analysed or all 
 
     band_names = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B10', 'B11', 'B12']
 
-
-unc_info
-^^^^^^^^^^^^^
-
-There are two possible options for `unc_info`:
-
-* **total**: returns the total uncertainty for all uncertainty parameters and contributions.
-* **components**: returns three uncertainty components: random, systematic, and structured.
-
-::
-
-    unc_info='total'
-
-or::
-
-    unc_info='components'
-
-`Note: The options cannot be specified at the same time`
 
 Constants
 -----------------
@@ -178,17 +157,20 @@ Methods
 run_rut
 ^^^^^^^^
 
-Runs the Sentinel 2 radiometric uncertainty tool, for selected bands and uncertainty types. Returns a dictionary of
-xarrays for each specified band, containing information about its dimensions, coordinates and data variables (total or components)::
+Runs the Sentinel 2 radiometric uncertainty tool, for selected bands and uncertainty types. Returns an xarray dataset with uncertainty variables for each specified band, containing information about its dimensions, coordinates and data variables::
 
-    {'B01': <xarray.Dataset> Size: 3MB
-     Dimensions:  (y_60m: 1830, x_60m: 1830)
-     Coordinates:
-     * y_60m    (y_60m) float64 15kB 3.2e+06 3.2e+06 3.2e+06 ... 3.09e+06 3.09e+06
-     * x_60m    (x_60m) float64 15kB 7e+05 7e+05 7.001e+05 ... 8.097e+05 8.097e+05
-     Data variables:
-     total    (y_60m, x_60m) uint8 3MB 22 22 23 23 23 23 23 ... 23 23 23 23 23 23}
-
+    <xarray.Dataset>
+    Dimensions:                    (y_60m: 1830, x_60m: 1830, x_5000m: 23,
+                                    y_5000m: 23)
+    Coordinates:
+      * x_60m                      (x_60m) float64 15kB 7e+05 7e+05 ... 8.097e+05
+      * y_60m                      (y_60m) float64 15kB 3.2e+06 3.2e+06 ... 3.09e+06
+        ...
+    Data variables:
+        B01                        (y_60m, x_60m) float32 13MB 0.2499 ... 0.2225
+        ...                         ...
+        u_systematic_B01           (y_60m, x_60m) uint8 3MB 22 22 22 22 ... 22 22 22
+        u_random_B01               (y_60m, x_60m) uint8 3MB 5 5 5 5 5 ... 5 5 5 5 5
 
 return_unc_correlations
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -196,9 +178,9 @@ return_unc_correlations
 Returns dictionary of uncertainty correlations: systematic, random, and structured. For each type, the full contributions list
 is available, where respective uncertainty parameters are classified as True or False, depending on their correlation status.
 
-* **systematic**: Out-of-Field straylight-systematic, Crosstalk, Diffuser-straylight residual, Diffuser-temporal knowledge
-* **random**: Out-of-Field straylight-random
-* **structured**: Instrument noise,  ADC quantisation, DS stability, Gamma knowledge, Diffuser-absolute knowledge, Diffuser-cosine effect, Diffuser-straylight residual, L1C image quantisation
+* **systematic**: Out-of-Field straylight-systematic, Crosstalk, Diffuser-straylight residual, Diffuser-temporal knowledge, Diffuser-absolute knowledge, DS stability, Diffuser-cosine_effect
+* **random**: Out-of-Field straylight-random, Instrument noise,  ADC quantisation, Gamma knowledge, L1C image quantisation
+
 
 This characterisation is in accordance to Gorrono `et.al.` (2017).
 
@@ -221,33 +203,27 @@ is visible here::
 
     s2rut = S2RUT()
     test = s2rut.run_rut(
-        data_set=s2_l1c_ds,
+        ds=s2_l1c_ds,
         band_names=['B01', 'B09'],
-        unc_info='components')
+    )
 
 Running this code, gives the following output ::
 
-    {'B01': <xarray.Dataset> Size: 10MB
-    Dimensions:     (y_60m: 1830, x_60m: 1830)
+    <xarray.Dataset>
+    Dimensions:                    (y_60m: 1830, x_60m: 1830, x_5000m: 23,
+                                    y_5000m: 23)
     Coordinates:
-      * y_60m       (y_60m) float64 15kB 3.2e+06 3.2e+06 ... 3.09e+06 3.09e+06
-      * x_60m       (x_60m) float64 15kB 7e+05 7e+05 ... 8.097e+05 8.097e+05
+      * x_60m                      (x_60m) float64 15kB 7e+05 7e+05 ... 8.097e+05
+      * y_60m                      (y_60m) float64 15kB 3.2e+06 3.2e+06 ... 3.09e+06
+        ...
     Data variables:
-        systematic  (y_60m, x_60m) uint8 3MB 13 13 13 13 13 13 ... 13 13 13 13 13 13
-        random      (y_60m, x_60m) uint8 3MB 1 1 1 1 1 1 1 1 1 ... 1 1 1 1 1 1 1 1 1
-        structured  (y_60m, x_60m) uint8 3MB 12 12 12 12 12 12 ... 12 12 12 12 12 12,
-     'B09': <xarray.Dataset> Size: 10MB
-    Dimensions:     (y_60m: 1830, x_60m: 1830)
-    Coordinates:
-      * y_60m       (y_60m) float64 15kB 3.2e+06 3.2e+06 ... 3.09e+06 3.09e+06
-      * x_60m       (x_60m) float64 15kB 7e+05 7e+05 ... 8.097e+05 8.097e+05
-    Data variables:
-        systematic  (y_60m, x_60m) uint8 3MB 4 4 4 4 4 4 4 4 4 ... 4 4 4 4 4 4 4 4 4
-        random      (y_60m, x_60m) uint8 3MB 8 8 8 8 8 8 8 8 8 ... 8 8 8 8 8 8 8 8 8
-        structured  (y_60m, x_60m) uint8 3MB 24 24 24 24 24 24 ... 24 24 24 24 24 24}
-
-
-
+        B01                        (y_60m, x_60m) float32 13MB 0.2499 ... 0.2225
+        B09                        (y_60m, x_60m) float32 13MB 0.1716 ... 0.1651
+        ...                         ...
+        u_systematic_B01           (y_60m, x_60m) uint8 3MB 22 22 22 22 ... 22 22 22
+        u_random_B01               (y_60m, x_60m) uint8 3MB 5 5 5 5 5 ... 5 5 5 5 5
+        u_systematic_B09           (y_60m, x_60m) uint8 3MB 12 12 12 12 ... 12 12 12
+        u_random_B09               (y_60m, x_60m) uint8 3MB 23 23 23 24 ... 24 23 23
 
 
 Citations
