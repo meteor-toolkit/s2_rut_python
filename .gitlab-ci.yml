@@ -126,7 +126,7 @@ pages:
   stage: Publish Pages
   needs: []
   script:
-    - sphinx-build docs/sphinx public -b html
+    - sphinx-build docs public -b html
   artifacts:
     paths:
     - public
@@ -141,7 +141,7 @@ pdf_make:
   stage: Build Documentation
   needs: []
   script:
-    - sphinx-build docs/sphinx latex -b latex
+    - sphinx-build docs latex -b latex
   
   artifacts:
     paths:
