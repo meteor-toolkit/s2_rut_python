@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Union
 
 import obsarray  # type: ignore[import-untyped]
 import xarray as xr
-from processor_tools.processor_tools.utils.dict_tools import get_value  # type: ignore[import-untyped]
+from processor_tools.utils.dict_tools import get_value  # type: ignore[import-untyped]
 
 import s2_rut_python.sza_interp as util
 
