@@ -35,7 +35,7 @@ setup(
     dependency_links=[
         "git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/processor_tools#egg=processor_tools",
     ],
-    extras_require={"dev": ["pre-commit", "tox", "sphinx", "sphinx_rtd_theme", "ipython","sphinx_design"]},
+    extras_require={"dev": ["pre-commit", "tox", "sphinx", "sphinx_book_theme", "sphinx_rtd_theme", "ipython","sphinx_design"]},
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Programming Language :: Python",
