@@ -26,11 +26,11 @@ setup(
     long_description=read("README.rst"),
     packages=find_packages(exclude=("tests",)),
     install_requires=[
-        "processor_tools @ git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/processor_tools#egg=processor_tools",
         "numpy",
         "matplotlib",
         "xarray",
         "obsarray",
+        "processor_tools @ git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/processor_tools#egg=processor_tools",
     ],
     dependency_links=[
         "git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/processor_tools#egg=processor_tools",

@@ -5,7 +5,7 @@ import socket
 import xarray as xr
 # from eoio.interface import read
 # import eoio.utils.read_utils as utils
-from processor_tools.utils.dict_tools import get_value
+# from processor_tools.utils.dict_tools import get_value
 from s2_rut_python.interface import S2RUT
 import datetime
 
