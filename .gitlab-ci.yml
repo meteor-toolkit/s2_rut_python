@@ -150,17 +150,21 @@ pdf_make:
     
 pdf_compile:
   needs: ["pdf_make"]
-  stage: Publish Documentation
+  stage: Publish latex Documentation
   image:  charlesbaynham/ctanfull
   artifacts:
     paths:
-    - s2_rut_python.pdf
+    - user_manual.pdf
     expose_as: "Manual"
     name: ${CI_COMMIT_REF_SLUG}_manual.pdf
   script:
-    - cd latex
+    - ls
+    - cd quality_documentation/latex
     - make
-    - cp s2_rut_python.pdf ../s2_rut_python.pdf
+    - cp user_manual.pdf ../../user_manual.pdf
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: always
 
 # Copied contents of Gitlab's Code-Quality.gitlab-ci.yml so I can edit the rules
 
