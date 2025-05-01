@@ -150,7 +150,7 @@ pdf_make:
     
 pdf_compile:
   needs: ["pdf_make"]
-  stage: Publish latex Documentation
+  stage: Publish Documentation
   image:  charlesbaynham/ctanfull
   artifacts:
     paths:
