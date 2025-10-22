@@ -33,7 +33,7 @@ s2b_product_path = os.path.join(s2b_msi_filepath,
                                 "Libya4",
                                 "S2B_MSIL1C_20190108T090339_N0207_R007_T34RGS_20190108T110320.SAFE")
 #
-# # read and convert a L1 S2A or S2B satellite product into reflectance using eoio
+# # # read and convert a L1 S2A or S2B satellite product into reflectance using eoio
 # s2_l1c_ds = read(
 #     s2a_product_path,
 #     subset_info={
