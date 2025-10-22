@@ -22,7 +22,7 @@ setup(
     license="None",
     author="Rasma Ormane",
     author_email="rasma.ormane@npl.co.uk",
-    description="Pure Python port of Javi's Sentinel-2 radiometric uncertainty tool",
+    description="Pure Python port of Xavi's Sentinel-2 radiometric uncertainty tool",
     long_description=read("README.rst"),
     packages=find_packages(exclude=("tests",)),
     install_requires=[
@@ -30,10 +30,9 @@ setup(
         "matplotlib",
         "xarray",
         "obsarray",
-        "processor_tools @ git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/processor_tools#egg=processor_tools",
+        "processor_tools",
     ],
     dependency_links=[
-        "git+https://gitlab-ci-token:glpat-ebyx_ePi36Jqg5Wi9dKK@gitlab.npl.co.uk/eco/tools/processor_tools#egg=processor_tools",
     ],
     extras_require={"dev": ["pre-commit", "tox", "sphinx", "sphinx_book_theme", "sphinx_rtd_theme", "ipython","sphinx_design"]},
     classifiers=[
