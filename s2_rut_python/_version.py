@@ -42,7 +42,7 @@ def get_config():
     cfg.style = "pep440"
     cfg.tag_prefix = ""
     cfg.parentdir_prefix = ""
-    cfg.versionfile_source = "s2_rut_python/_version.py"
+    cfg.versionfile_source = "ancillary_tools/_version.py"
     cfg.verbose = False
     return cfg
 
@@ -51,8 +51,8 @@ class NotThisMethod(Exception):
     """Exception raised if a method is not valid for the current scenario."""
 
 
-LONG_VERSION_PY = {}
-HANDLERS = {}
+LONG_VERSION_PY: dict = {}
+HANDLERS: dict = {}
 
 
 def register_vcs_handler(vcs, method):  # decorator

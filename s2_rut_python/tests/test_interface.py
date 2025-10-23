@@ -1,0 +1,205 @@
+import datetime
+
+# import os, sys
+import unittest
+import unittest.mock as mock
+from unittest.mock import MagicMock
+
+import numpy as np
+import xarray as xr
+
+from s2_rut_python.interface import S2RUT
+
+# THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
+# S2_RUT_DIRECTORY = os.path.join(THIS_DIRECTORY, "snap-rut", "src", "main", "python")
+
+# sys.path.insert(0, S2_RUT_DIRECTORY)
+# import s2_rut_algo
+# import s2_l1_rad_conf
+
+__author__ = [
+    "Rasma Ormane <rasma.ormane@npl.co.uk>",
+]
+
+
+class TestS2RUT(unittest.TestCase):
+    def setUp(self):
+        # Create a mock dataset
+        self.mock_dataset = xr.Dataset(
+            data_vars=dict(
+                B01=(
+                    ["y_60m", "x_60m"],
+                    np.ones((5, 5)),
+                    {
+                        "product_metadata": {
+                            "PHYSICAL_GAINS": 1,
+                            "SOLAR_IRRADIANCE": {"#text": 1},
+                            "ALPHA": 1,
+                            "BETA": 1,
+                        }
+                    },
+                )
+            ),
+            coords=dict(
+                y=(["y_60m"], np.ones(5)),
+                x=(["x_60m"], np.ones(5)),
+            ),
+            attrs={
+                "platform": "Sentinel-2A",
+                "product_metadata": {
+                    "U": 0.05,
+                    "QUANTIFICATION_VALUE": 10000,
+                    "DATASTRIP_SENSING_START": datetime.datetime(
+                        2015, 6, 1, 10, 00
+                    ),  # np.datetime64("2022-06-01T10:00:00")
+                },
+            },
+        )
+
+        self.s2_rut = S2RUT()
+
+    @mock.patch("processor_tools.utils.dict_tools.get_value")
+    @mock.patch("s2_rut_python.interface.util.interp_sza_s2")
+    @mock.patch("s2_rut_algo.S2RutAlgo")
+    def test_get_band_unc_parameters(
+        self, mock_s2_rut_algo, mock_interp_sza_s2, mock_get_value
+    ):
+        # # Set up the mock return values for get_value and interp_sza_s2
+        mock_get_value.side_effect = lambda attrs, key: attrs.get(key, None)
+        mock_ds = self.mock_dataset
+        mock_interp_sza_s2.return_value = 1
+
+        # Set up the mock for the S2RutAlgo class attributes
+        mock_algo_instance = mock_s2_rut_algo.return_value
+        mock_algo_instance.u_diff_cos = 2.0
+        mock_algo_instance.u_diff_k = 3.0
+        mock_algo_instance.u_ADC = 4.0
+        mock_algo_instance.u_gamma = 5.0
+        mock_algo_instance.k = 6.0
+        mock_u_diff_temp_rate = {"Sentinel-2A": [7.0]}
+
+        with mock.patch(
+            "s2_rut_python.interface.TIME_INIT",
+            {"Sentinel-2A": datetime.datetime(2015, 6, 23, 10, 00)},
+        ):
+            with mock.patch(
+                "s2_rut_python.interface.conf.u_diff_temp_rate", mock_u_diff_temp_rate
+            ):
+                # Initialize the S2RUT object and run the get_band_unc_parameters method
+                rut = S2RUT()
+                result = rut.get_band_unc_parameters(mock_ds, "B01")
+
+                # Define the expected keys
+                expected_keys = [
+                    "a",
+                    "e_sun",
+                    "u_sun",
+                    "tecta",
+                    "quant",
+                    "alpha",
+                    "beta",
+                    "u_diff_cos",
+                    "u_diff_k",
+                    "u_diff_temp",
+                    "u_ADC",
+                    "u_gamma",
+                    "k",
+                ]
+
+                # Check if all expected keys are in the result dictionary
+                for key in expected_keys:
+                    self.assertIn(key, result)
+
+                expected_values = {
+                    "a": 1.0,
+                    "e_sun": 1.0,
+                    "u_sun": 0.05,
+                    "tecta": 1.0,
+                    "quant": 10000,
+                    "alpha": 1.0,
+                    "beta": 1.0,
+                    "u_diff_cos": 2.0,
+                    "u_diff_k": 3.0,
+                    "u_diff_temp": 7 * -0.06023271731690623,
+                    "u_ADC": 4.0,
+                    "u_gamma": 5.0,
+                    "k": 6.0,
+                }
+
+                for key in expected_values:
+                    self.assertEqual(result[key], expected_values[key])
+
+    def test_return_unc_components(self):
+        s2rut = S2RUT()
+        unc_comp = s2rut.return_unc_components()
+
+        # Check if the returned dictionary is as expected
+        self.assertIn("random", unc_comp)
+        self.assertIn("systematic", unc_comp)
+
+    @mock.patch("s2_rut_python.interface.S2RUT.get_band_unc_parameters")
+    @mock.patch("s2_rut_python.interface.MyS2RUTAlgo.unc_calculation")
+    def test_run(self, mock_unc_calculation, mock_get_band_unc_parameters):
+        # Mock the return value of the unc_calculation method
+        mock_unc_calculation.return_value = 2 * np.ones((5, 5))
+        mock_get_band_unc_parameters.return_value = {
+            "a": 1.0,
+            "e_sun": 1.0,
+            "u_sun": 1.0,
+            "tecta": np.ones((10, 10)),
+            "quant": 1.0,
+            "alpha": 1.0,
+            "beta": 1.0,
+            "u_diff_cos": 1.0,
+            "u_diff_k": 1.0,
+            "u_diff_temp": 7.532935146264837,
+            "u_ADC": 1.0,
+            "u_gamma": 1.0,
+            "k": 1.0,
+        }
+
+        band_names = ["B01"]
+        result = self.s2_rut.run(self.mock_dataset, band_names)
+
+        xr.testing.assert_equal(
+            result,
+            xr.Dataset(
+                data_vars={
+                    "B01": (
+                        ["y_60m", "x_60m"],
+                        np.ones((5, 5)),
+                        {
+                            "PHYSICAL_GAINS": 1,
+                            "SOLAR_IRRADIANCE": {"#text": 1},
+                            "ALPHA": 1,
+                            "BETA": 1,
+                            "unc_comps": [
+                                "u_systematic_B01",
+                                "u_random_B01",
+                            ],
+                        },
+                    ),
+                    "u_systematic_B01": (["y_60m", "x_60m"], 2 * np.ones((5, 5))),
+                    "u_random_B01": (["y_60m", "x_60m"], 2 * np.ones((5, 5))),
+                },
+                coords={
+                    "y": (["y_60m"], np.ones(5)),
+                    "x": (["x_60m"], np.ones(5)),
+                },
+                attrs={
+                    "platform": "Sentinel-2A",
+                    "U": 0.05,
+                    "QUANTIFICATION_VALUE": 10000,
+                    "DATASTRIP_SENSING_START": "2015-06-01 10:00:00",
+                },
+            ),
+        )
+
+        np.testing.assert_equal(mock_unc_calculation.call_args[0][0], np.ones((5, 5)))
+        self.assertEqual(mock_unc_calculation.call_args[0][1], 0)
+        self.assertEqual(mock_unc_calculation.call_args[0][2], "Sentinel-2A")
+        self.assertEqual(mock_unc_calculation.call_count, 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

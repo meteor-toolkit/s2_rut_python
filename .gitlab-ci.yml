@@ -1,5 +1,5 @@
 # Default image, if not specified
-image: "python:3.8"
+image: "python:3.10"
 
 stages:
   - Build Documentation
@@ -16,7 +16,7 @@ stages:
 # only cache local items.
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-
+  GIT_SUBMODULE_STRATEGY: recursive
 # Pip's cache doesn't store the python packages
 # https://pip.pypa.io/en/stable/reference/pip_install/#caching
 #
@@ -28,6 +28,7 @@ cache:
     - .cache/pip
     - .tox/
     - venv/
+
 
 # Make a template for steps that use a python virtual env
 .py_venv:
@@ -61,7 +62,17 @@ black:
   allow_failure: true
   needs: []
 
-
+mypy:
+  image: python:3.10
+#    name: grktsh/mypy
+#    entrypoint: [ "" ]
+  stage: Static Analysis
+  script:
+    - pip install mypy --quiet
+    - mypy s2_rut_python --install-types --non-interactive --exclude s2_rut_python
+    - mypy s2_rut_python --exclude s2_rut_python
+  allow_failure: true
+  needs: [ ]
 
 ### Tests ###
 
@@ -77,20 +88,10 @@ black:
   coverage: '/^TOTAL.+?(\d+\%)$/'
   needs: []
 
-tox-3.6:
+tox-3.10:
     extends: ".tox"
     stage: "Test"
-    image: "python:3.6"
-
-tox-3.7:
-    extends: ".tox"
-    stage: "Test"
-    image: "python:3.7"
-
-tox-3.8:
-    extends: ".tox"
-    stage: "Test"
-    image: "python:3.8"
+    image: "python:3.10"
   
 tox_slowtests:
     extends: .py_venv
@@ -126,7 +127,7 @@ pages:
   stage: Publish Pages
   needs: []
   script:
-    - sphinx-build docs/sphinx public -b html
+    - sphinx-build docs public -b html
   artifacts:
     paths:
     - public
@@ -141,7 +142,7 @@ pdf_make:
   stage: Build Documentation
   needs: []
   script:
-    - sphinx-build docs/sphinx latex -b latex
+    - sphinx-build docs latex -b latex
   
   artifacts:
     paths:
@@ -154,13 +155,17 @@ pdf_compile:
   image:  charlesbaynham/ctanfull
   artifacts:
     paths:
-    - s2_rut_python.pdf
+    - user_manual.pdf
     expose_as: "Manual"
     name: ${CI_COMMIT_REF_SLUG}_manual.pdf
   script:
-    - cd latex
+    - ls
+    - cd quality_documentation/latex
     - make
-    - cp s2_rut_python.pdf ../s2_rut_python.pdf
+    - cp user_manual.pdf ../../user_manual.pdf
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: always
 
 # Copied contents of Gitlab's Code-Quality.gitlab-ci.yml so I can edit the rules
 

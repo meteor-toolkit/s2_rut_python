@@ -1,7 +1,7 @@
 """s2_rut_python - Pure Python port of Javi's Sentinel-2 radiometric uncertainty tool"""
 
 __author__ = "Sam Hunt <sam.hunt@npl.co.uk>"
-__all__ = []
+__all__: list = []
 
 from ._version import get_versions
 
