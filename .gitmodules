@@ -1,3 +1,0 @@
-[submodule "s2_rut_python/snap-rut"]
-	path = s2_rut_python/snap-rut
-	url = https://github.com/senbox-org/snap-rut.git
