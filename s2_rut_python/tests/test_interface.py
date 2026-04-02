@@ -82,13 +82,17 @@ class TestS2RUTTool(unittest.TestCase):
             self.tool._get_contributor_component("u_unknown")
 
     def test__build_uncertainty_attrs_grouped(self):
-        attrs = self.tool._build_uncertainty_attrs(self.ds, "B01", "grouped", "systematic")
+        attrs = self.tool._build_uncertainty_attrs(
+            self.ds, "B01", "grouped", "systematic"
+        )
         self.assertIn("Systematic", attrs["long_name"])
         self.assertEqual(attrs["units"], self.ds["B01"].attrs["units"])
         self.assertEqual(attrs["standard_name"], "uncertainty_systematic_B01")
 
     def test__build_uncertainty_attrs_per_contributor(self):
-        attrs = self.tool._build_uncertainty_attrs(self.ds, "B01", "per_contributor", "u_noise")
+        attrs = self.tool._build_uncertainty_attrs(
+            self.ds, "B01", "per_contributor", "u_noise"
+        )
         self.assertIn("Noise", attrs["long_name"])
         self.assertIn("u_noise", attrs["description"])
         self.assertEqual(attrs["units"], self.ds["B01"].attrs["units"])
@@ -100,7 +104,7 @@ class TestS2RUTTool(unittest.TestCase):
             "u_diff": np.ones((2, 2)) * 3,
         }
         result = self.tool._compute_grouped_uncertainty("systematic", unc_contributors)
-        expected = np.ones((2, 2)) + np.sqrt((2 ** 2) + (3 ** 2))
+        expected = np.ones((2, 2)) + np.sqrt((2**2) + (3**2))
         np.testing.assert_allclose(result, expected)
 
     def test__compute_grouped_uncertainty_random(self):
@@ -109,7 +113,7 @@ class TestS2RUTTool(unittest.TestCase):
             "u_adc": np.ones((2, 2)) * 3,
         }
         result = self.tool._compute_grouped_uncertainty("random", unc_contributors)
-        expected = np.sqrt((2 ** 2) + (3 ** 2)) * np.ones((2, 2))
+        expected = np.sqrt((2**2) + (3**2)) * np.ones((2, 2))
         np.testing.assert_allclose(result, expected)
 
     def test__configure_contributors_default(self):
@@ -134,7 +138,9 @@ class TestS2RUTTool(unittest.TestCase):
         self.assertFalse(call_map["ds"])
 
     def test__normalize_data_vars(self):
-        self.assertEqual(self.tool._normalize_data_vars(True), list(MEAS_VAR_RES.keys()))
+        self.assertEqual(
+            self.tool._normalize_data_vars(True), list(MEAS_VAR_RES.keys())
+        )
         self.assertEqual(self.tool._normalize_data_vars("B01"), ["B01"])
         self.assertEqual(self.tool._normalize_data_vars(["B01", "B09"]), ["B01", "B09"])
 
@@ -149,12 +155,16 @@ class TestS2RUTTool(unittest.TestCase):
             "u_adc": np.ones((2, 2)) * 5,
         }
 
-        names = self.tool._store_grouped_uncertainties(ds, "B01", unc_contributors, valid_mask)
+        names = self.tool._store_grouped_uncertainties(
+            ds, "B01", unc_contributors, valid_mask
+        )
 
         self.assertIn("u_systematic_B01", names)
         self.assertIn("u_random_B01", names)
         self.assertTrue(np.isnan(ds.unc["B01"]["u_random_B01"].value.values[0, 1]))
-        self.assertEqual(ds.unc["B01"]["u_random_B01"].value.attrs["units"], ds["B01"].attrs["units"])
+        self.assertEqual(
+            ds.unc["B01"]["u_random_B01"].value.attrs["units"], ds["B01"].attrs["units"]
+        )
 
     def test__store_per_contributor_uncertainties(self):
         ds = self.ds.copy(deep=True)
@@ -165,7 +175,9 @@ class TestS2RUTTool(unittest.TestCase):
         }
 
         with mock.patch("s2_rut_python.interface.warnings.warn") as mocked_warn:
-            names = self.tool._store_per_contributor_uncertainties(ds, "B01", unc_contributors, valid_mask)
+            names = self.tool._store_per_contributor_uncertainties(
+                ds, "B01", unc_contributors, valid_mask
+            )
 
         self.assertIn("u_noise_B01", names)
         self.assertIn("u_unknown_B01", names)
@@ -186,7 +198,9 @@ class TestS2RUTTool(unittest.TestCase):
     def test_return_sza_var_with_interp(self):
         ds = self.ds.copy(deep=True)
         ds["solar_zenith_angle"] = xr.DataArray(np.ones((1, 1)), dims=("a", "b"))
-        ds["solar_zenith_angle_interp"] = xr.DataArray(np.ones((2, 2)), dims=("y_60m", "x_60m"))
+        ds["solar_zenith_angle_interp"] = xr.DataArray(
+            np.ones((2, 2)), dims=("y_60m", "x_60m")
+        )
 
         result = self.tool.return_sza_var(ds, "B01")
         self.assertEqual(result, "solar_zenith_angle_interp")
@@ -252,7 +266,9 @@ class TestS2RUTTool(unittest.TestCase):
         )
         mock_rut_cls.return_value = rut_instance
 
-        out = self.tool.run(ds=ds, data_vars="B01", group_unc=False, subset_unc=["noise"])
+        out = self.tool.run(
+            ds=ds, data_vars="B01", group_unc=False, subset_unc=["noise"]
+        )
 
         self.assertIn("u_noise_B01", list(out.unc["B01"].keys()))
         self.assertTrue(rut_instance.unc_select_noise)

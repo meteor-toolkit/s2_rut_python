@@ -22,7 +22,11 @@ __author__ = [
 
 __all__ = ["S2RUTTool", "MyS2RUTAlgo"]
 
-INPUT_CONTRIBUTORS = os.path.abspath(os.path.join(os.path.dirname(THIS_DIRECTORY), 'third-party', 'Data', 'unc_contributors.json'))
+INPUT_CONTRIBUTORS = os.path.abspath(
+    os.path.join(
+        os.path.dirname(THIS_DIRECTORY), "third-party", "Data", "unc_contributors.json"
+    )
+)
 MEAS_VAR_RES = {
     "B01": 60,
     "B02": 10,
@@ -67,18 +71,18 @@ COMPONENTS = {
 
 
 U_CONTRIBUTIONS = [
-    "noise",# "Instrument_noise",
-    "stray_sys",# "OOF_straylight-systematic",
-    "stray_rand",# "OOF_straylight-random",
-    "xtalk",# "Crosstalk",
-    "adc",# "ADC_quantisation",
-    "ds",# "DS_stability",
-    "gamma",# "Gamma_knowledge",
-    "diff_abs",# "Diffuser-absolute_knowledge",
-    "diff_temp",# "Diffuser-temporal_knowledge",
-    "diff_cos",# "Diffuser-cosine_effect",
-    "diff_sl",# "Diffuser-straylight_residual",
-    "ref_quant",# "L1C_image_quantisation",
+    "noise",  # "Instrument_noise",
+    "stray_sys",  # "OOF_straylight-systematic",
+    "stray_rand",  # "OOF_straylight-random",
+    "xtalk",  # "Crosstalk",
+    "adc",  # "ADC_quantisation",
+    "ds",  # "DS_stability",
+    "gamma",  # "Gamma_knowledge",
+    "diff_abs",  # "Diffuser-absolute_knowledge",
+    "diff_temp",  # "Diffuser-temporal_knowledge",
+    "diff_cos",  # "Diffuser-cosine_effect",
+    "diff_sl",  # "Diffuser-straylight_residual",
+    "ref_quant",  # "L1C_image_quantisation",
     "geoloc",
 ]
 
@@ -93,6 +97,7 @@ OUTPUT_CONTRIBUTIONS = {
     "ref_quant",
     "geoloc",
 }
+
 
 class S2RUTTool:
     """
@@ -160,9 +165,13 @@ class S2RUTTool:
             long_name = f"{component_or_contributor.capitalize()} radiometric uncertainty for {band_long_name}"
             description = f"Radiometric uncertainty ({component_or_contributor}) from all {component_or_contributor} contributors for {band}"
         else:  # per_contributor
-            contrib_name = component_or_contributor.replace("u_", "").replace("_", " ").title()
+            contrib_name = (
+                component_or_contributor.replace("u_", "").replace("_", " ").title()
+            )
             long_name = f"{contrib_name} radiometric uncertainty for {band_long_name}"
-            description = f"Radiometric uncertainty ({component_or_contributor}) for {band}"
+            description = (
+                f"Radiometric uncertainty ({component_or_contributor}) for {band}"
+            )
 
         attrs = {
             "long_name": long_name,
@@ -172,7 +181,9 @@ class S2RUTTool:
         }
         return attrs
 
-    def _compute_grouped_uncertainty(self, component: str, unc_contributors: Dict) -> np.ndarray:
+    def _compute_grouped_uncertainty(
+        self, component: str, unc_contributors: Dict
+    ) -> np.ndarray:
         """
         Compute grouped uncertainty for a correlation component (systematic or random).
 
@@ -265,9 +276,7 @@ class S2RUTTool:
             ]
             masked_unc = np.where(valid_mask.values, unc, np.nan)
             unc_name = f"u_{component}_{band}"
-            unc_attrs = self._build_uncertainty_attrs(
-                ds, band, "grouped", component
-            )
+            unc_attrs = self._build_uncertainty_attrs(ds, band, "grouped", component)
             ds.unc[band][unc_name] = (
                 ds[band].dims,
                 masked_unc,
@@ -343,7 +352,7 @@ class S2RUTTool:
         :param valid_mask: boolean mask for valid (non-zero) reflectance pixels.
         """
         ds[band] = ds[band].where(valid_mask)
-        
+
     def run(
         self,
         ds: xr.Dataset,
@@ -374,7 +383,9 @@ class S2RUTTool:
         # Process each band.
         for band in data_vars:  # type: ignore[union-attr]
             if band not in ds:
-                warnings.warn(f"{band} not in dataset; skipping uncertainty calculation.")
+                warnings.warn(
+                    f"{band} not in dataset; skipping uncertainty calculation."
+                )
                 continue
 
             # Validate solar zenith angle availability and compute valid pixel mask.
@@ -411,66 +422,92 @@ class S2RUTTool:
             self._apply_zero_reflectance_mask(ds, band, valid_mask)
 
         return ds
-    
+
     def return_sza_var(self, ds: xr.Dataset, band: str) -> str:
         """
         Check that the solar zenith angle variable is present in the dataset and has a shape compatible with the shape of the band data, required for uncertainty calculation. If not, raise error.
-        
+
         :param ds: dataset read in by eoio containing the required solar zenith angle variable for uncertainty calculation
         :param band: name of the band for which to check the solar zenith angle variable
-        :return: name of the solar zenith angle variable to use for uncertainty calculation"""
-        
+        :return: name of the solar zenith angle variable to use for uncertainty calculation
+        """
+
         # check shape of solar zenith angle variable is compatible with shape of band data, if not, raise error
-        solar_var = 'solar_zenith_angle'
+        solar_var = "solar_zenith_angle"
         if solar_var not in ds:
-            raise KeyError("Solar zenith angle variable 'solar_zenith_angle' not found in dataset, required for uncertainty calculation.")
+            raise KeyError(
+                "Solar zenith angle variable 'solar_zenith_angle' not found in dataset, required for uncertainty calculation."
+            )
         if ds[solar_var].shape != ds[band].shape:
-            solar_var = 'solar_zenith_angle_interp'
+            solar_var = "solar_zenith_angle_interp"
             if solar_var not in ds:
-                raise KeyError("Solar zenith angle variable 'solar_zenith_angle_interp' not found in dataset, required for uncertainty calculation.")
+                raise KeyError(
+                    "Solar zenith angle variable 'solar_zenith_angle_interp' not found in dataset, required for uncertainty calculation."
+                )
             if ds[solar_var].shape != ds[band].shape:
-                raise ValueError(f"Shape of solar zenith angle variable {ds[solar_var].shape} not compatible with shape of band data {ds[band].shape} for {band}, required for uncertainty calculation.")
-        
+                raise ValueError(
+                    f"Shape of solar zenith angle variable {ds[solar_var].shape} not compatible with shape of band data {ds[band].shape} for {band}, required for uncertainty calculation."
+                )
+
         return solar_var
-    
-    def return_metadata(self, ds: xr.Dataset, band_names: Sequence[str]) -> Union[Dict, KeyError]:
+
+    def return_metadata(
+        self, ds: xr.Dataset, band_names: Sequence[str]
+    ) -> Union[Dict, KeyError]:
         """
         Extract required metadata for uncertainty calculation from the dataset read in by eoio.
-        
+
         :param ds: dataset read in by eoio containing the required metadata for uncertainty calculation
         :param band_names: list of band names for which to extract metadata
         :return: dictionary of metadata parameters required for uncertainty calculation
         """
-        metadata = {'spacecraft': None, 'quant': None, 'A': [], 'offset': [], 'alpha': {},
-                                    'beta': {}, 'Esun': [], 'Usun': None, 'refined': False}  # this dictionary contains the relevant metadata parameters
-        
+        metadata = {
+            "spacecraft": None,
+            "quant": None,
+            "A": [],
+            "offset": [],
+            "alpha": {},
+            "beta": {},
+            "Esun": [],
+            "Usun": None,
+            "refined": False,
+        }  # this dictionary contains the relevant metadata parameters
+
         # read required metadata from ds.attrs and fill the metadata dictionary
         METADATA_MAP = {
-            'spacecraft': 'platform',
-            'quant': 'quantification_level',
-            'Usun': 'reflectance_conversion_u',
+            "spacecraft": "platform",
+            "quant": "quantification_level",
+            "Usun": "reflectance_conversion_u",
         }
         VAR_MTD_MAP = {
-            'Esun': 'solar_irradiance',
-            'alpha': 'noise_model_alpha',
-            'beta': 'noise_model_beta',
-            'A': 'physical_gains',
-            'offset': 'radiometric_offset',
+            "Esun": "solar_irradiance",
+            "alpha": "noise_model_alpha",
+            "beta": "noise_model_beta",
+            "A": "physical_gains",
+            "offset": "radiometric_offset",
         }
 
         for key, path in METADATA_MAP.items():
             if path in ds.attrs:
                 metadata[key] = ds.attrs[path]
-            elif path in ds.attrs['product_metadata']:
-                metadata[key] = ds.attrs['product_metadata'][path]
+            elif path in ds.attrs["product_metadata"]:
+                metadata[key] = ds.attrs["product_metadata"][path]
             else:
-                raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'.")
+                raise KeyError(
+                    f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'."
+                )
 
         for key, path in VAR_MTD_MAP.items():
             try:
-                metadata[key] = {band: ds[band].attrs['product_metadata'][path] for band in band_names if band in ds.data_vars}
+                metadata[key] = {
+                    band: ds[band].attrs["product_metadata"][path]
+                    for band in band_names
+                    if band in ds.data_vars
+                }
             except KeyError as e:
-                raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'.")
+                raise KeyError(
+                    f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'."
+                )
 
         return metadata
 
