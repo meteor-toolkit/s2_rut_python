@@ -1,4 +1,4 @@
-"""s2_rut_python - Pure Python port of Javi's Sentinel-2 radiometric uncertainty tool"""
+"""s2_rut_python - Pure Python port of SNAP's Sentinel-2 radiometric uncertainty tool"""
 
 __author__ = "Sam Hunt <sam.hunt@npl.co.uk>"
 __all__: list = []

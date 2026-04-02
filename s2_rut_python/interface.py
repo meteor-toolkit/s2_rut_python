@@ -2,22 +2,17 @@
 
 import datetime
 import os
-import sys
 import warnings
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 import obsarray  # type: ignore[import-untyped]
 import xarray as xr
-from processor_tools.utils.dict_tools import get_value  # type: ignore[import-untyped]
-
-import s2_rut_python.sza_interp as util
+import numpy as np
 
 THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
-S2_RUT_DIRECTORY = os.path.join(THIS_DIRECTORY, "snap-rut", "src", "main", "python")
+import s2_rut_python._vendor  # noqa: F401
+from S2RUT import S2RUT_L1
 
-sys.path.insert(0, S2_RUT_DIRECTORY)
-import s2_l1_rad_conf as conf  # type: ignore
-import s2_rut_algo as srut  # type: ignore
 
 __author__ = [
     "Rasma Ormane <rasma.ormane@npl.co.uk>",
@@ -25,8 +20,9 @@ __author__ = [
     "Maddie Stedman <maddie.stedman@npl.co.uk>",
 ]
 
-__all__ = ["S2RUT", "MyS2RUTAlgo"]
+__all__ = ["S2RUTTool", "MyS2RUTAlgo"]
 
+INPUT_CONTRIBUTORS = os.path.abspath(os.path.join(os.path.dirname(THIS_DIRECTORY), 'third-party', 'Data', 'unc_contributors.json'))
 MEAS_VAR_RES = {
     "B01": 60,
     "B02": 10,
@@ -49,55 +45,56 @@ TIME_INIT = {
 }
 
 # Categorise correlations for all possible uncertainty contributions
-# Info from Gorroño, Javier, et al. "Providing uncertainty estimates of the Sentinel-2 top-of-atmosphere measurements for radiometric validation activities." European Journal of Remote Sensing 51.1 (2018): 650-666.
+# Ref: Gorroño et al., Remote Sensing 9(2):178 (2017)
 COMPONENTS = {
     "systematic": [
-        "OOF_straylight-systematic",
-        "Crosstalk",
-        "Diffuser-straylight_residual",
-        "Diffuser-absolute_knowledge",
-        "Diffuser-temporal_knowledge",
-        "DS_stability",  # correlated along dims spatial & temporal - structured along spectral dim
-        "Diffuser-cosine_effect",
+        "sys",
+        "stray_sys",
+        "stray_xtalk",
+        "xtalk",
+        "ds",
+        "diff_temp",
+        "diff",
     ],
     "random": [
-        "OOF_straylight-random",  # random in spectral & spatial, systematic in temporal
-        "Instrument_noise",  # random in temporal dim. random in spectral & spatial dims "under the assumption that noise introduced by the post-amplification is not dominant"
-        "ADC_quantisation",  #
-        "Gamma_knowledge",  # random in spatial dim, fully correlated in temporal & spectral dims
-        "L1C_image_quantisation",
+        "noise",
+        "adc",
+        "gamma",
+        "ref_quant",
+        "geoloc",
     ],
-    "structured": [],
 }
 
 
 U_CONTRIBUTIONS = [
-    "Instrument_noise",
-    "OOF_straylight-systematic",
-    "OOF_straylight-random",
-    "Crosstalk",
-    "ADC_quantisation",
-    "DS_stability",
-    "Gamma_knowledge",
-    "Diffuser-absolute_knowledge",
-    "Diffuser-temporal_knowledge",
-    "Diffuser-cosine_effect",
-    "Diffuser-straylight_residual",
-    "L1C_image_quantisation",
+    "noise",# "Instrument_noise",
+    "stray_sys",# "OOF_straylight-systematic",
+    "stray_rand",# "OOF_straylight-random",
+    "xtalk",# "Crosstalk",
+    "adc",# "ADC_quantisation",
+    "ds",# "DS_stability",
+    "gamma",# "Gamma_knowledge",
+    "diff_abs",# "Diffuser-absolute_knowledge",
+    "diff_temp",# "Diffuser-temporal_knowledge",
+    "diff_cos",# "Diffuser-cosine_effect",
+    "diff_sl",# "Diffuser-straylight_residual",
+    "ref_quant",# "L1C_image_quantisation",
+    "geoloc",
 ]
 
+OUTPUT_CONTRIBUTIONS = {
+    "noise",
+    "sys",
+    "stray_xtalk",
+    "ds",
+    "gamma",
+    "adc",
+    "diff",
+    "ref_quant",
+    "geoloc",
+}
 
-class MyS2RUTAlgo(srut.S2RutAlgo):
-    # Overwrite set parameter values from ESA's S2RUT tool with those extracted from product metadata
-    def __init__(self, param_dict):
-        super().__init__()
-
-        for key, value in param_dict.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-
-
-class S2RUT:
+class S2RUTTool:
     """
     Class to run ESA's S2RUT tool for dataset to return dataset with uncertainty variables added using obsarray.
     """
@@ -105,121 +102,377 @@ class S2RUT:
     def __init__(self):
         # Define the band names and index the band names
         self.band_id = {band: index for index, band in enumerate(MEAS_VAR_RES.keys())}
-        # Initialise ESA's S2RUT class to access the default set parameters
-        self.og_rut = srut.S2RutAlgo()
 
+    def set_contributor(self, rut, contributor, value):
+        """
+        Set the value of a contributor in the S2RUT class.
+
+        :param rut: instance of ESA's S2RUT class.
+        :param contributor: name of the contributor to set.
+        :param value: boolean value to enable/disable the contributor.
+        :raises KeyError: if contributor not found in S2RUT class.
+        """
+        attr_name = f"unc_select_{contributor}"
+        if hasattr(rut, attr_name):
+            setattr(rut, attr_name, value)
+        else:
+            raise KeyError(f"Contributor '{contributor}' not found in S2RUT class.")
+
+    def _get_contributor_component(self, contributor: str) -> str:
+        """
+        Determine the correlation component (systematic or random) for a given contributor.
+
+        :param contributor: contributor name (e.g., 'u_noise').
+        :return: component type ('systematic' or 'random').
+        :raises ValueError: if contributor cannot be categorized.
+        """
+        contrib_base = contributor.split("u_")[-1]
+        if contrib_base in COMPONENTS["systematic"]:
+            return "systematic"
+        elif contrib_base in COMPONENTS["random"]:
+            return "random"
+        else:
+            raise ValueError(
+                f"Contributor {contrib_base} not categorized as systematic or random. "
+                f"Defaulting to random."
+            )
+
+    def _build_uncertainty_attrs(
+        self,
+        ds: xr.Dataset,
+        band: str,
+        unc_type: str,
+        component_or_contributor: str,
+    ) -> Dict:
+        """
+        Build metadata attributes for uncertainty variables.
+
+        :param ds: xarray Dataset containing band metadata.
+        :param band: band name.
+        :param unc_type: 'grouped' or 'per_contributor'.
+        :param component_or_contributor: component name ('systematic'/'random') or contributor name.
+        :return: dictionary of attributes suitable for obsarray uncertainty variables.
+        """
+        band_long_name = ds[band].attrs.get("long_name", f"Band {band}")
+        band_units = ds[band].attrs.get("units", "")
+
+        if unc_type == "grouped":
+            long_name = f"{component_or_contributor.capitalize()} radiometric uncertainty for {band_long_name}"
+            description = f"Radiometric uncertainty ({component_or_contributor}) from all {component_or_contributor} contributors for {band}"
+        else:  # per_contributor
+            contrib_name = component_or_contributor.replace("u_", "").replace("_", " ").title()
+            long_name = f"{contrib_name} radiometric uncertainty for {band_long_name}"
+            description = f"Radiometric uncertainty ({component_or_contributor}) for {band}"
+
+        attrs = {
+            "long_name": long_name,
+            "description": description,
+            "units": band_units,
+            "standard_name": f"uncertainty_{component_or_contributor}_{band}",
+        }
+        return attrs
+
+    def _compute_grouped_uncertainty(self, component: str, unc_contributors: Dict) -> np.ndarray:
+        """
+        Compute grouped uncertainty for a correlation component (systematic or random).
+
+        :param component: 'systematic' or 'random'.
+        :param unc_contributors: dictionary of per-contributor uncertainties.
+        :return: numpy array of grouped uncertainty values.
+        """
+        if component == "systematic":
+            # Systematic: includes u_sys plus other systematic contributors
+            u_sys = unc_contributors.get("u_sys", 0)
+            other_systematic_sq = np.sum(
+                [
+                    unc_contributors[f"u_{contrib}"] ** 2
+                    for contrib in COMPONENTS["systematic"]
+                    if contrib != "sys" and f"u_{contrib}" in unc_contributors
+                ],
+                axis=0,
+            )
+            return u_sys + np.sqrt(other_systematic_sq)
+        else:  # random
+            # Random: root-sum-of-squares of all random contributors
+            random_sq = np.sum(
+                [
+                    unc_contributors[f"u_{contrib}"] ** 2
+                    for contrib in COMPONENTS["random"]
+                    if f"u_{contrib}" in unc_contributors
+                ],
+                axis=0,
+            )
+            return np.sqrt(random_sq)
+
+    def _configure_contributors(self, rut, subset_unc: Optional[Sequence[str]]) -> None:
+        """
+        Configure which uncertainty contributors to include in the RUT calculation.
+
+        :param rut: S2RUT_L1 instance.
+        :param subset_unc: List of contributors to include; None means all contributors.
+        """
+        if subset_unc is not None:
+            for contributor in U_CONTRIBUTIONS:
+                enabled = contributor in subset_unc
+                self.set_contributor(rut, contributor, enabled)
+        else:
+            # Enable all contributors
+            for contributor in U_CONTRIBUTIONS:
+                self.set_contributor(rut, contributor, True)
+
+    def _normalize_data_vars(
+        self, data_vars: Optional[Union[List[str], str, bool]]
+    ) -> List[str]:
+        """
+        Normalize data_vars parameter into a list of band names.
+
+        :param data_vars: True (all bands), a string (single band), or a list of bands.
+        :return: list of band names to process.
+        """
+        if data_vars is True:
+            return list(MEAS_VAR_RES.keys())
+        elif isinstance(data_vars, str):
+            return [data_vars]
+        else:
+            return list(data_vars) if data_vars else []
+
+    def _store_grouped_uncertainties(
+        self,
+        ds: xr.Dataset,
+        band: str,
+        unc_contributors: Dict,
+        valid_mask: xr.DataArray,
+    ) -> List[str]:
+        """
+        Store uncertainty variables grouped by correlation type (systematic/random).
+
+        :param ds: xarray Dataset to update with uncertainty variables.
+        :param band: band name being processed.
+        :param unc_contributors: per-contributor uncertainty values.
+        :param valid_mask: boolean mask for valid (non-zero) reflectance pixels.
+        :return: list of uncertainty variable names created.
+        """
+        created_names = []
+        for component in COMPONENTS:
+            unc = self._compute_grouped_uncertainty(component, unc_contributors)
+            err_corr_def = [
+                {
+                    "dim": [ds[band].dims],
+                    "form": component,
+                    "params": [],
+                    "units": ds[band].attrs.get("units"),
+                },
+            ]
+            masked_unc = np.where(valid_mask.values, unc, np.nan)
+            unc_name = f"u_{component}_{band}"
+            unc_attrs = self._build_uncertainty_attrs(
+                ds, band, "grouped", component
+            )
+            ds.unc[band][unc_name] = (
+                ds[band].dims,
+                masked_unc,
+                {
+                    "err_corr": err_corr_def,
+                    "pdf_shape": "gaussian",
+                    **unc_attrs,
+                },
+            )
+            created_names.append(unc_name)
+        return created_names
+
+    def _store_per_contributor_uncertainties(
+        self,
+        ds: xr.Dataset,
+        band: str,
+        unc_contributors: Dict,
+        valid_mask: xr.DataArray,
+    ) -> List[str]:
+        """
+        Store uncertainty variables per-contributor (not grouped).
+
+        :param ds: xarray Dataset to update with uncertainty variables.
+        :param band: band name being processed.
+        :param unc_contributors: per-contributor uncertainty values.
+        :param valid_mask: boolean mask for valid (non-zero) reflectance pixels.
+        :return: list of uncertainty variable names created.
+        """
+        created_names = []
+        for contributor, unc in unc_contributors.items():
+            # Determine the correlation component type for this contributor.
+            try:
+                component = self._get_contributor_component(contributor)
+            except ValueError as e:
+                warnings.warn(str(e))
+                component = "random"
+
+            err_corr_def = [
+                {
+                    "dim": [ds[band].dims],
+                    "form": component,
+                    "params": [],
+                    "units": ds[band].attrs.get("units"),
+                },
+            ]
+            masked_unc = np.where(valid_mask.values, unc, np.nan)
+            unc_name = f"{contributor}_{band}"
+            unc_attrs = self._build_uncertainty_attrs(
+                ds, band, "per_contributor", contributor
+            )
+            ds.unc[band][unc_name] = (
+                ds[band].dims,
+                masked_unc,
+                {
+                    "err_corr": err_corr_def,
+                    "pdf_shape": "gaussian",
+                    "contributor": contributor,
+                    **unc_attrs,
+                },
+            )
+            created_names.append(unc_name)
+        return created_names
+
+    def _apply_zero_reflectance_mask(
+        self, ds: xr.Dataset, band: str, valid_mask: xr.DataArray
+    ) -> None:
+        """
+        Apply zero-reflectance masking to the reflectance band.
+        Note: Uncertainty variables are already masked during creation.
+
+        :param ds: xarray Dataset to update.
+        :param band: band name being processed.
+        :param valid_mask: boolean mask for valid (non-zero) reflectance pixels.
+        """
+        ds[band] = ds[band].where(valid_mask)
+        
     def run(
         self,
         ds: xr.Dataset,
-        band_names: Union[List[str], str, bool] = True,
-        components: bool = True,
+        data_vars: Optional[Union[List[str], str, bool]] = True,
+        group_unc: Optional[bool] = True,
+        subset_unc: Optional[Sequence[str]] = None,
     ) -> xr.Dataset:
         """
-        Run the Sentinel 2 radiometric uncertainty tool s2_rut
+        Run the Sentinel-2 radiometric uncertainty tool (S2-RUT) on a dataset.
 
-        :param ds: satellite dataset product for which to calculate uncertainties
-        :param band_names: definition of desired S2 bands,
-                           options: B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B10, B11, B12, by default None
-        :param components: boolean - if True uncertainty provided as components systematic/random/structured. If False, total uncertainty provided.
-
-        :return: input ds with uncertainty variables added using obsarray
+        :param ds: xarray Dataset with reflectance bands and required metadata.
+        :param data_vars: Band names to process. True (default) processes all available bands,
+                         a string processes one band, or a list processes specific bands.
+                         Options: B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B10, B11, B12.
+        :param group_unc: If True (default), uncertainties grouped by correlation type (systematic/random).
+                         If False, uncertainties stored per-contributor.
+        :param subset_unc: Optional list of contributors to include. If None, all contributors are used.
+        :return: Input dataset with uncertainty variables added via obsarray interface.
         """
-        unc_comp = self.return_unc_components()
+        # Initialize RUT engine and configure selected uncertainty contributors.
+        rut = S2RUT_L1(INPUT_CONTRIBUTORS)
+        self._configure_contributors(rut, subset_unc)
 
-        if band_names is True:
-            band_names = [
-                "B01",
-                "B02",
-                "B03",
-                "B04",
-                "B05",
-                "B06",
-                "B07",
-                "B08",
-                "B8A",
-                "B09",
-                "B10",
-                "B11",
-                "B12",
-            ]
+        # Normalize input and extract metadata.
+        data_vars = self._normalize_data_vars(data_vars)
+        metadata = self.return_metadata(ds, data_vars)
 
-        for band in band_names:  # type: ignore[union-attr]
+        # Process each band.
+        for band in data_vars:  # type: ignore[union-attr]
             if band not in ds:
-                warnings.warn(
-                    f"{band} data not in dataset so uncertainties not calculated for {band}."
-                )
+                warnings.warn(f"{band} not in dataset; skipping uncertainty calculation.")
                 continue
-            band_unc_params = self.get_band_unc_parameters(ds, band)
-            rut = MyS2RUTAlgo(band_unc_params)
 
-            # Add parameters to ds for each band
-            for comp in unc_comp.keys():
-                rut.unc_select = list(unc_comp[comp].values())
-                unc = rut.unc_calculation(
-                    ds[band].values, self.band_id[band], ds.attrs.get("platform")
+            # Validate solar zenith angle availability and compute valid pixel mask.
+            solar_var = self.return_sza_var(ds, band)
+            valid_mask = ds[band] != 0
+
+            # Build sun_zenith list indexed by band index (for RUT tool compatibility).
+            # sun_zenith[bandind] must correspond to solar zenith for band at MEAS_VAR_RES index.
+            bandind = self.band_id[band]
+            sun_zenith = [None] * len(MEAS_VAR_RES)
+            sun_zenith[bandind] = ds[solar_var].values
+
+            # Calculate uncertainties for this band.
+            unc_total, unc_contributors = rut.unc_calculation_abs(
+                ds[band].values,
+                band,
+                bandind,
+                metadata,
+                sun_zenith,
+                do_contributor=True,
+            )
+
+            # Store uncertainties (grouped or per-contributor).
+            if group_unc:
+                created_names = self._store_grouped_uncertainties(
+                    ds, band, unc_contributors, valid_mask
                 )
-                err_corr_def = [
-                    {
-                        "dim": [ds[band].dims],
-                        "form": comp,
-                        "params": [],
-                        "units": ds[band].attrs.get("units"),
-                    },
-                ]
-                ds.unc[band][f"u_{comp}_{band}"] = (
-                    ds[band].dims,
-                    unc,
-                    {"err_corr": err_corr_def, "pdf_shape": "gaussian"},
+            else:
+                created_names = self._store_per_contributor_uncertainties(
+                    ds, band, unc_contributors, valid_mask
                 )
+
+            # Apply zero-reflectance masking.
+            self._apply_zero_reflectance_mask(ds, band, valid_mask)
 
         return ds
-
-    def return_unc_components(self):
+    
+    def return_sza_var(self, ds: xr.Dataset, band: str) -> str:
         """
-        Returns dictionary of uncertainty correlations, organising them as random, systematic, and structured.
+        Check that the solar zenith angle variable is present in the dataset and has a shape compatible with the shape of the band data, required for uncertainty calculation. If not, raise error.
+        
+        :param ds: dataset read in by eoio containing the required solar zenith angle variable for uncertainty calculation
+        :param band: name of the band for which to check the solar zenith angle variable
+        :return: name of the solar zenith angle variable to use for uncertainty calculation"""
+        
+        # check shape of solar zenith angle variable is compatible with shape of band data, if not, raise error
+        solar_var = 'solar_zenith_angle'
+        if solar_var not in ds:
+            raise KeyError("Solar zenith angle variable 'solar_zenith_angle' not found in dataset, required for uncertainty calculation.")
+        if ds[solar_var].shape != ds[band].shape:
+            solar_var = 'solar_zenith_angle_interp'
+            if solar_var not in ds:
+                raise KeyError("Solar zenith angle variable 'solar_zenith_angle_interp' not found in dataset, required for uncertainty calculation.")
+            if ds[solar_var].shape != ds[band].shape:
+                raise ValueError(f"Shape of solar zenith angle variable {ds[solar_var].shape} not compatible with shape of band data {ds[band].shape} for {band}, required for uncertainty calculation.")
+        
+        return solar_var
+    
+    def return_metadata(self, ds: xr.Dataset, band_names: Sequence[str]) -> Union[Dict, KeyError]:
         """
-
-        comp_types_all = {}
-        for unc_type in COMPONENTS:
-            unc_comp = {key: False for key in U_CONTRIBUTIONS}
-            for key in COMPONENTS[unc_type]:
-                unc_comp[key] = True
-                comp_dict = {unc_type: unc_comp}
-                # add contribution dictionary to the correlation dictionary
-                comp_types_all.update(comp_dict)
-
-        return comp_types_all
-
-    def get_band_unc_parameters(self, ds, band):
+        Extract required metadata for uncertainty calculation from the dataset read in by eoio.
+        
+        :param ds: dataset read in by eoio containing the required metadata for uncertainty calculation
+        :param band_names: list of band names for which to extract metadata
+        :return: dictionary of metadata parameters required for uncertainty calculation
         """
-        Extract band-specific uncertainty parameters from the provided data_set (eoio specific).
-        """
-
-        # Extract band uncertainty information (using eoio)
-        band_params = {
-            "a": get_value(ds[band].attrs["product_metadata"], "PHYSICAL_GAINS"),
-            "e_sun": get_value(
-                ds[band].attrs["product_metadata"]["SOLAR_IRRADIANCE"], "#text"
-            ),
-            "u_sun": get_value(ds.attrs, "U"),
-            "tecta": util.interp_sza_s2(ds, MEAS_VAR_RES[band]),
-            "quant": get_value(ds.attrs, "QUANTIFICATION_VALUE"),
-            "alpha": get_value(ds[band].attrs["product_metadata"], "ALPHA"),
-            "beta": get_value(ds[band].attrs["product_metadata"], "BETA"),
-            "u_diff_cos": self.og_rut.u_diff_cos,
-            "u_diff_k": self.og_rut.u_diff_k,
-            "u_diff_temp": (
-                get_value(ds.attrs, "DATASTRIP_SENSING_START")
-                - TIME_INIT[ds.attrs["platform"]]
-            ).days
-            / 365.25
-            * conf.u_diff_temp_rate[ds.platform][self.band_id[band]],
-            "u_ADC": self.og_rut.u_ADC,
-            "u_gamma": self.og_rut.u_gamma,
-            "k": self.og_rut.k,
+        metadata = {'spacecraft': None, 'quant': None, 'A': [], 'offset': [], 'alpha': {},
+                                    'beta': {}, 'Esun': [], 'Usun': None, 'refined': False}  # this dictionary contains the relevant metadata parameters
+        
+        # read required metadata from ds.attrs and fill the metadata dictionary
+        METADATA_MAP = {
+            'spacecraft': 'platform',
+            'quant': 'quantification_level',
+            'Usun': 'reflectance_conversion_u',
+        }
+        VAR_MTD_MAP = {
+            'Esun': 'solar_irradiance',
+            'alpha': 'noise_model_alpha',
+            'beta': 'noise_model_beta',
+            'A': 'physical_gains',
+            'offset': 'radiometric_offset',
         }
 
-        return band_params
+        for key, path in METADATA_MAP.items():
+            if path in ds.attrs:
+                metadata[key] = ds.attrs[path]
+            elif path in ds.attrs['product_metadata']:
+                metadata[key] = ds.attrs['product_metadata'][path]
+            else:
+                raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'.")
+
+        for key, path in VAR_MTD_MAP.items():
+            try:
+                metadata[key] = {band: ds[band].attrs['product_metadata'][path] for band in band_names if band in ds.data_vars}
+            except KeyError as e:
+                raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'.")
+
+        return metadata
 
 
 if __name__ == "__main__":

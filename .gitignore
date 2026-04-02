@@ -115,3 +115,10 @@ ENV/
 
 # IDE settings
 .vscode/.git.old
+
+# data
+*.SAFE
+*.SAFE/*
+
+# plots
+*.png
