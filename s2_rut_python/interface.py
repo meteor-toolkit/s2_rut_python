@@ -192,15 +192,16 @@ class S2RUTTool:
         :param unc_contributors: dictionary of per-contributor uncertainties.
         :return: numpy array of grouped uncertainty values.
         """
-        return np.sqrt(np.sum(
+        return np.sqrt(
+            np.sum(
                 [
                     unc_contributors[f"u_{contrib}"] ** 2
                     for contrib in COMPONENTS[component]
                     if f"u_{contrib}" in unc_contributors
                 ],
                 axis=0,
-        ))
-
+            )
+        )
 
     def _configure_contributors(self, rut, subset_unc: Optional[Sequence[str]]) -> None:
         """
@@ -421,7 +422,11 @@ class S2RUTTool:
 
         # check shape of solar zenith angle variable is compatible with shape of band data, if not, raise error
         solar_var = "solar_zenith_angle"
-        for solar_var in ["solar_zenith_angle", f"solar_zenith_angle_interp", f"solar_zenith_angle_{get_value(ds[band].attrs, 'geometry_id')}"]:
+        for solar_var in [
+            "solar_zenith_angle",
+            f"solar_zenith_angle_interp",
+            f"solar_zenith_angle_{get_value(ds[band].attrs, 'geometry_id')}",
+        ]:
             if solar_var not in ds:
                 continue
             elif ds[solar_var].shape == ds[band].shape:
