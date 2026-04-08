@@ -104,7 +104,7 @@ class TestS2RUTTool(unittest.TestCase):
             "u_diff": np.ones((2, 2)) * 3,
         }
         result = self.tool._compute_grouped_uncertainty("systematic", unc_contributors)
-        expected = np.ones((2, 2)) + np.sqrt((2**2) + (3**2))
+        expected = np.sqrt((1**2) + (2**2) + (3**2)) * np.ones((2, 2))
         np.testing.assert_allclose(result, expected)
 
     def test__compute_grouped_uncertainty_random(self):
@@ -250,6 +250,12 @@ class TestS2RUTTool(unittest.TestCase):
         self.assertTrue(np.isnan(out["B01"].values[0, 1]))
         rut_instance.unc_calculation_abs.assert_called_once()
 
+        call_args = rut_instance.unc_calculation_abs.call_args
+        self.assertEqual(call_args.args[2], self.tool.band_id["B01"])
+        sun_zenith_arg = call_args.args[4]
+        self.assertEqual(len(sun_zenith_arg), len(MEAS_VAR_RES))
+        self.assertIsNotNone(sun_zenith_arg[self.tool.band_id["B01"]])
+
     @mock.patch("s2_rut_python.interface.S2RUT_L1")
     def test_run_per_contributor(self, mock_rut_cls):
         ds = self.ds.copy(deep=True)
@@ -273,6 +279,12 @@ class TestS2RUTTool(unittest.TestCase):
         self.assertIn("u_noise_B01", list(out.unc["B01"].keys()))
         self.assertTrue(rut_instance.unc_select_noise)
         self.assertFalse(rut_instance.unc_select_ds)
+
+        call_args = rut_instance.unc_calculation_abs.call_args
+        self.assertEqual(call_args.args[2], self.tool.band_id["B01"])
+        sun_zenith_arg = call_args.args[4]
+        self.assertEqual(len(sun_zenith_arg), len(MEAS_VAR_RES))
+        self.assertIsNotNone(sun_zenith_arg[self.tool.band_id["B01"]])
 
 
 if __name__ == "__main__":

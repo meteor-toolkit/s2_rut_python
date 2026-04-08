@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Sequence, Union
 import obsarray  # type: ignore[import-untyped]
 import xarray as xr
 import numpy as np
+from processor_tools.utils.dict_tools import get_value
 
 THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 import s2_rut_python._vendor  # noqa: F401
@@ -191,29 +192,15 @@ class S2RUTTool:
         :param unc_contributors: dictionary of per-contributor uncertainties.
         :return: numpy array of grouped uncertainty values.
         """
-        if component == "systematic":
-            # Systematic: includes u_sys plus other systematic contributors
-            u_sys = unc_contributors.get("u_sys", 0)
-            other_systematic_sq = np.sum(
+        return np.sqrt(np.sum(
                 [
                     unc_contributors[f"u_{contrib}"] ** 2
-                    for contrib in COMPONENTS["systematic"]
-                    if contrib != "sys" and f"u_{contrib}" in unc_contributors
-                ],
-                axis=0,
-            )
-            return u_sys + np.sqrt(other_systematic_sq)
-        else:  # random
-            # Random: root-sum-of-squares of all random contributors
-            random_sq = np.sum(
-                [
-                    unc_contributors[f"u_{contrib}"] ** 2
-                    for contrib in COMPONENTS["random"]
+                    for contrib in COMPONENTS[component]
                     if f"u_{contrib}" in unc_contributors
                 ],
                 axis=0,
-            )
-            return np.sqrt(random_sq)
+        ))
+
 
     def _configure_contributors(self, rut, subset_unc: Optional[Sequence[str]]) -> None:
         """
@@ -434,22 +421,15 @@ class S2RUTTool:
 
         # check shape of solar zenith angle variable is compatible with shape of band data, if not, raise error
         solar_var = "solar_zenith_angle"
-        if solar_var not in ds:
-            raise KeyError(
-                "Solar zenith angle variable 'solar_zenith_angle' not found in dataset, required for uncertainty calculation."
-            )
-        if ds[solar_var].shape != ds[band].shape:
-            solar_var = "solar_zenith_angle_interp"
+        for solar_var in ["solar_zenith_angle", f"solar_zenith_angle_interp", f"solar_zenith_angle_{get_value(ds[band].attrs, 'geometry_id')}"]:
             if solar_var not in ds:
-                raise KeyError(
-                    "Solar zenith angle variable 'solar_zenith_angle_interp' not found in dataset, required for uncertainty calculation."
-                )
-            if ds[solar_var].shape != ds[band].shape:
-                raise ValueError(
-                    f"Shape of solar zenith angle variable {ds[solar_var].shape} not compatible with shape of band data {ds[band].shape} for {band}, required for uncertainty calculation."
-                )
-
-        return solar_var
+                continue
+            elif ds[solar_var].shape == ds[band].shape:
+                return solar_var
+        raise KeyError(
+            f"Required solar zenith angle variable not found with compatible shape for band {band} "
+            f"with resolution {get_value(ds[band].attrs, 'geometry_id')}."
+        )
 
     def return_metadata(
         self, ds: xr.Dataset, band_names: Sequence[str]

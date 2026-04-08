@@ -5,9 +5,9 @@ import glob
 import socket
 
 import matplotlib.pyplot as plt
-import numpy as np
 from eoio import read
 
+from example_utils import build_centered_roi_subset
 from s2_rut_python.interface import S2RUTTool
 
 if socket.gethostname() == "lyon.npl.co.uk" or socket.gethostname() == "leipzig.npl.co.uk" or 'leiden' in socket.gethostname():
@@ -33,10 +33,15 @@ if len(safe_candidates) == 0:
 
 
 # Process multiple bands for richer example.
-bands = ["B01", "B09"]
+bands = ["B01", "B03", "B09"]
 
 safe_product = safe_candidates[0]
 print(f"Reading SAFE product: {safe_product}")
+
+subset = build_centered_roi_subset(safe_product, probe_band=bands[0], roi_size_m=2000.0)
+print(f"Using automated ROI subset: {subset}")
+
+
 ds = read(
     safe_product,
     vars_sel={
@@ -54,13 +59,14 @@ ds = read(
         "save_extracted": True,
         "ave_va_det": True,
     },
+    subset=subset,
     processors={
         "interpolate": {
             "coords": ["y_5000m", "x_5000m"],
             "data_vars": ["solar_zenith_angle"],
-            "target_grid": ["y_60m", "x_60m"],
+            "target_grid": [["y_60m", "y_10m"], ["x_60m", "x_10m"]],
             "method": "linear",
-            "inplace": True,
+            "inplace": False,
         }
     },
 )
