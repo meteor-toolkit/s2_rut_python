@@ -52,8 +52,8 @@ Uncertainty variables are stored in the obsarray uncertainty accessor (for examp
 
 Example
 =======
-An up-to-date runnable example is available in ``examples/run_s2rut_example.py``.
-It demonstrates reading Sentinel-2 L1C data with eoio, running ``S2RUTTool.run(...)``,
+An up-to-date runnable example is available in ``examples/run_example.py``.
+It demonstrates reading Sentinel-2 L1C data with eoio, selecting an ROI subset for the current product, running ``S2RUTTool.run(...)``,
 and plotting reflectance, random uncertainty [%], and systematic uncertainty [%].
 
 Virtual environment

@@ -20,22 +20,23 @@ Requirements
 Input must be an :py:class:`xarray.Dataset` containing:
 
 * Sentinel-2 reflectance band(s) (``B01`` ... ``B12``)
-* solar zenith angles in either:
+* solar zenith angles in one of the following variables with matching band shape:
 
-    * ``solar_zenith_angle`` with matching band shape, or
-    * ``solar_zenith_angle_interp`` with matching band shape
+  * ``solar_zenith_angle`` with matching band shape, or
+  * ``solar_zenith_angle_interp`` with matching band shape, or
+  * ``solar_zenith_angle_<geometry_id>`` with matching band shape
 * dataset metadata:
 
-    * ``platform``
-    * ``quantification_level``
-    * ``reflectance_conversion_u``
+  * ``platform``
+  * ``quantification_level``
+  * ``reflectance_conversion_u``
 * per-band metadata in ``ds[band].attrs['product_metadata']``:
 
-    * ``solar_irradiance``
-    * ``noise_model_alpha``
-    * ``noise_model_beta``
-    * ``physical_gains``
-    * ``radiometric_offset``
+  * ``solar_irradiance``
+  * ``noise_model_alpha``
+  * ``noise_model_beta``
+  * ``physical_gains``
+  * ``radiometric_offset``
 
 Basic Usage
 -----------
@@ -81,37 +82,37 @@ Run Parameters
 
 * ``data_vars``:
 
-    * ``True``: process all Sentinel-2 bands listed in ``MEAS_VAR_RES``
-    * ``str``: process one band (for example ``"B01"``)
-    * ``list[str]``: process explicit band list
+  * ``True``: process all Sentinel-2 bands listed in ``MEAS_VAR_RES``
+  * ``str``: process one band (for example ``"B01"``)
+  * ``list[str]``: process explicit band list
 
 * ``group_unc``:
 
-    * ``True``: returns grouped uncertainties by correlation component
+  * ``True``: returns grouped uncertainties by correlation component
 
-        * ``u_systematic_<band>``
-        * ``u_random_<band>``
+                * ``u_systematic_<band>``
+                * ``u_random_<band>``
 
-    * ``False``: returns per-contributor uncertainties (for example ``u_noise_<band>``)
+  * ``False``: returns per-contributor uncertainties (for example ``u_noise_<band>``)
 
 * ``subset_unc``:
 
-    * ``None``: include all contributors
-    * list of contributor names from:
+  * ``None``: include all contributors
+  * list of contributor names from:
 
-        * ``noise``
-        * ``stray_sys``
-        * ``stray_rand``
-        * ``xtalk``
-        * ``adc``
-        * ``ds``
-        * ``gamma``
-        * ``diff_abs``
-        * ``diff_temp``
-        * ``diff_cos``
-        * ``diff_sl``
-        * ``ref_quant``
-        * ``geoloc``
+                * ``noise``
+                * ``stray_sys``
+                * ``stray_rand``
+                * ``xtalk``
+                * ``adc``
+                * ``ds``
+                * ``gamma``
+                * ``diff_abs``
+                * ``diff_temp``
+                * ``diff_cos``
+                * ``diff_sl``
+                * ``ref_quant``
+                * ``geoloc``
 
 Output
 ------
@@ -132,7 +133,7 @@ Zero Reflectance Handling
 -------------------------
 
 Pixels where reflectance equals zero are masked to ``NaN`` in the reflectance band before return.
-Uncertainty arrays are already masked consistently during creation.
+Uncertainty arrays are masked consistently during creation.
 
 Example Script
 --------------
@@ -141,13 +142,16 @@ An up-to-date runnable example is provided in:
 
 ::
 
-        examples/run_s2rut_example.py
+        examples/run_example.py
 
 It demonstrates:
 
 * reading Sentinel-2 L1C data with ``eoio``
+* selecting a user-defined ROI polygon in WGS84 (``EPSG:4326``)
 * running ``S2RUTTool.run``
 * plotting reflectance, random uncertainty [%], and systematic uncertainty [%]
+
+The example uses a test SAFE path and ROI string. Update those values for your local data.
 
 .. _citations:
 

@@ -1,4 +1,4 @@
-"""Simple example: read a Sentinel-2 L1C SAFE product and run S2-RUT."""
+"""example: read a Sentinel-2 L1C SAFE product and run S2-RUT."""
 
 import os
 import glob
@@ -6,44 +6,35 @@ import socket
 
 import matplotlib.pyplot as plt
 from eoio import read
+from shapely import wkt
 
-from example_utils import build_centered_roi_subset
 from s2_rut_python.interface import S2RUTTool
 
 if socket.gethostname() == "lyon.npl.co.uk" or socket.gethostname() == "leipzig.npl.co.uk" or 'leiden' in socket.gethostname():
-    S2_DIRECTORY = "/mnt/t/data/product_archive/S2A/S2_MSI_L1C"
+    DATA_DIRECTORY = "/mnt/t/data/"
 else:
-    S2_DIRECTORY = r"T:\ECO\EOServer\data\product_archive\S2A\S2_MSI_L1C"
-
-# Use T drive example products.
-safe_candidates = glob.glob(
-    os.path.join(
-        S2_DIRECTORY,
-        '*',
-        '*',
-        '*',
-        "*.SAFE",
-    ))
-
-if len(safe_candidates) == 0:
-    raise FileNotFoundError(
-        "Could not find the example SAFE product on the T drive. "
-        "Update `safe_candidates` to a valid local path."
-    )
+    DATA_DIRECTORY = r"T:\ECO\EOServer\data"
 
 
-# Process multiple bands for richer example.
-bands = ["B01", "B03", "B09"]
+# Define input path from test datasets
+SAFE_PATH = os.path.join(DATA_DIRECTORY, "unittest_datasets", "S2MSIL1C", "S2A_MSIL1C_20251128T111431_N0511_R137_T30UXE_20251128T121631.SAFE")
+print("SAFE PATH:", SAFE_PATH)
 
-safe_product = safe_candidates[0]
-print(f"Reading SAFE product: {safe_product}")
+# Define ROI
+roi_string = "POLYGON ((\
+ -0.913910 53.786950,\
+ -0.382900 53.776490,\
+ -0.406240 53.464690,\
+ -0.925060 53.474770,\
+ -0.913910 53.786950\
+))"
 
-subset = build_centered_roi_subset(safe_product, probe_band=bands[0], roi_size_m=2000.0)
-print(f"Using automated ROI subset: {subset}")
+geom = wkt.loads(roi_string)
 
-
+# Read the dataset with eoio, selecting only a few bands and auxiliary variables for efficiency.
+bands= ["B01", "B03", "B09"]
 ds = read(
-    safe_product,
+    SAFE_PATH,
     vars_sel={
         "meas": bands,
         "aux": [
@@ -59,7 +50,7 @@ ds = read(
         "save_extracted": True,
         "ave_va_det": True,
     },
-    subset=subset,
+    subset={"roi": geom, "roi_crs": "EPSG:4326"},
     processors={
         "interpolate": {
             "coords": ["y_5000m", "x_5000m"],
@@ -71,12 +62,11 @@ ds = read(
     },
 )
 
+# Run S2-RUT on the dataset, computing both random and systematic uncertainties.
 print("Running S2-RUT")
 rut = S2RUTTool()
 ds_out = rut.run(ds=ds, data_vars=bands, group_unc=True)
 
-print("Output variables:")
-print(list(ds_out.data_vars))
 
 # Create a single grid plot: rows = bands, columns = [reflectance, random [%], systematic [%]].
 fig, axes = plt.subplots(
