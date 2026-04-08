@@ -80,39 +80,15 @@ Run Parameters
 
 ``S2RUTTool.run(ds, data_vars=True, group_unc=True, subset_unc=None)``
 
-* ``data_vars``:
-
-  * ``True``: process all Sentinel-2 bands listed in ``MEAS_VAR_RES``
-  * ``str``: process one band (for example ``"B01"``)
-  * ``list[str]``: process explicit band list
-
-* ``group_unc``:
-
-  * ``True``: returns grouped uncertainties by correlation component
-
-                * ``u_systematic_<band>``
-                * ``u_random_<band>``
-
-  * ``False``: returns per-contributor uncertainties (for example ``u_noise_<band>``)
-
-* ``subset_unc``:
-
-  * ``None``: include all contributors
-  * list of contributor names from:
-
-                * ``noise``
-                * ``stray_sys``
-                * ``stray_rand``
-                * ``xtalk``
-                * ``adc``
-                * ``ds``
-                * ``gamma``
-                * ``diff_abs``
-                * ``diff_temp``
-                * ``diff_cos``
-                * ``diff_sl``
-                * ``ref_quant``
-                * ``geoloc``
+* ``data_vars``: ``True`` (all bands in ``MEAS_VAR_RES``), a single band name string
+        (for example ``"B01"``), or ``list[str]`` of explicit bands.
+* ``group_unc``: ``True`` returns grouped outputs ``u_systematic_<band>`` and
+        ``u_random_<band>``. ``False`` returns per-contributor outputs (for example
+        ``u_noise_<band>``).
+* ``subset_unc``: ``None`` includes all contributors. A ``list[str]`` limits contributors
+        to names in: ``noise``, ``stray_sys``, ``stray_rand``, ``xtalk``, ``adc``, ``ds``,
+        ``gamma``, ``diff_abs``, ``diff_temp``, ``diff_cos``, ``diff_sl``, ``ref_quant``,
+        ``geoloc``.
 
 Output
 ------
