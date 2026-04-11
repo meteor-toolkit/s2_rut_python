@@ -264,7 +264,7 @@ class S2RUT_L1:
         #######################################################################
         if self.unc_select_ref_quant:
             u_ref_quant = (
-                np.ones(np.shape(cn)) * (0.5 / math.sqrt(3)) / (metadatadict["quant"])
+                np.ones(np.shape(cn)) * (0.5 / math.sqrt(3)) / (metadatadict["quant"]["reflectance"])
             )  # [%] scaling 0-1 in steps number=quant
             u_ref_quant[~np.isfinite(cn)] = np.nan  # reproduce nan data from input
         else:
