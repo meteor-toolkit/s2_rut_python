@@ -7,7 +7,7 @@ name = "s2_rut_python"
 dynamic = ["version"]
 description = "Pure Python port of ESA's Sentinel-2 radiometric uncertainty tool"
 readme = "README.rst"
-license = { text = "None" }
+license = { file = "LICENSE" }
 authors = [
     { name = "Maddie Stedman", email = "maddie.stedman@npl.co.uk" }
 ]
