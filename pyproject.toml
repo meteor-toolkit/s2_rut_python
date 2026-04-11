@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "s2_rut_python"
+dynamic = ["version"]
+description = "Pure Python port of ESA's Sentinel-2 radiometric uncertainty tool"
+readme = "README.rst"
+license = { text = "None" }
+authors = [
+    { name = "Maddie Stedman", email = "maddie.stedman@npl.co.uk" }
+]
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "xarray",
+    "obsarray",
+    "processor_tools",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+]
+
+[project.urls]
+Homepage = "http://gitlab.npl.co.uk/eco/tools/s2_rut_python"
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "tox",
+    "sphinx",
+    "sphinx_book_theme",
+    "sphinx_rtd_theme",
+    "ipython",
+    "sphinx_design",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests.*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "s2_rut_python.__version__" }

@@ -1,204 +1,290 @@
-import datetime
-
-# import os, sys
 import unittest
 import unittest.mock as mock
-from unittest.mock import MagicMock
 
 import numpy as np
 import xarray as xr
 
-from s2_rut_python.interface import S2RUT
-
-# THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
-# S2_RUT_DIRECTORY = os.path.join(THIS_DIRECTORY, "snap-rut", "src", "main", "python")
-
-# sys.path.insert(0, S2_RUT_DIRECTORY)
-# import s2_rut_algo
-# import s2_l1_rad_conf
-
-__author__ = [
-    "Rasma Ormane <rasma.ormane@npl.co.uk>",
-]
+from s2_rut_python.interface import COMPONENTS, MEAS_VAR_RES, U_CONTRIBUTIONS, S2RUTTool
 
 
-class TestS2RUT(unittest.TestCase):
+class TestS2RUTTool(unittest.TestCase):
     def setUp(self):
-        # Create a mock dataset
-        self.mock_dataset = xr.Dataset(
-            data_vars=dict(
-                B01=(
+        self.tool = S2RUTTool()
+        self.ds = self._build_dataset()
+
+    @staticmethod
+    def _build_dataset() -> xr.Dataset:
+        b01_data = np.array([[1.0, 0.0], [2.0, 3.0]], dtype=float)
+        sza_data = np.array([[30.0, 30.0], [30.0, 30.0]], dtype=float)
+
+        return xr.Dataset(
+            data_vars={
+                "B01": (
                     ["y_60m", "x_60m"],
-                    np.ones((5, 5)),
+                    b01_data,
                     {
+                        "units": "1",
+                        "long_name": "Reflectance in band B01",
                         "product_metadata": {
-                            "PHYSICAL_GAINS": 1,
-                            "SOLAR_IRRADIANCE": {"#text": 1},
-                            "ALPHA": 1,
-                            "BETA": 1,
-                        }
+                            "solar_irradiance": 1800.0,
+                            "noise_model_alpha": 0.4,
+                            "noise_model_beta": 0.01,
+                            "physical_gains": 1.2,
+                            "radiometric_offset": 0.0,
+                        },
                     },
-                )
-            ),
-            coords=dict(
-                y=(["y_60m"], np.ones(5)),
-                x=(["x_60m"], np.ones(5)),
-            ),
+                ),
+                "solar_zenith_angle": (["y_60m", "x_60m"], sza_data),
+            },
+            coords={
+                "y_60m": [0, 1],
+                "x_60m": [0, 1],
+            },
             attrs={
                 "platform": "Sentinel-2A",
+                "quantification_level": 10000,
+                "reflectance_conversion_u": 0.05,
                 "product_metadata": {
-                    "U": 0.05,
-                    "QUANTIFICATION_VALUE": 10000,
-                    "DATASTRIP_SENSING_START": datetime.datetime(
-                        2015, 6, 1, 10, 00
-                    ),  # np.datetime64("2022-06-01T10:00:00")
+                    "platform": "Sentinel-2A",
+                    "quantification_level": 10000,
+                    "reflectance_conversion_u": 0.05,
                 },
             },
         )
 
-        self.s2_rut = S2RUT()
+    def test___init__(self):
+        self.assertEqual(self.tool.band_id["B01"], 0)
+        self.assertEqual(len(self.tool.band_id), len(MEAS_VAR_RES))
 
-    @mock.patch("processor_tools.utils.dict_tools.get_value")
-    @mock.patch("s2_rut_python.interface.util.interp_sza_s2")
-    @mock.patch("s2_rut_algo.S2RutAlgo")
-    def test_get_band_unc_parameters(
-        self, mock_s2_rut_algo, mock_interp_sza_s2, mock_get_value
-    ):
-        # # Set up the mock return values for get_value and interp_sza_s2
-        mock_get_value.side_effect = lambda attrs, key: attrs.get(key, None)
-        mock_ds = self.mock_dataset
-        mock_interp_sza_s2.return_value = 1
+    def test_set_contributor(self):
+        class FakeRUT:
+            unc_select_noise = False
 
-        # Set up the mock for the S2RutAlgo class attributes
-        mock_algo_instance = mock_s2_rut_algo.return_value
-        mock_algo_instance.u_diff_cos = 2.0
-        mock_algo_instance.u_diff_k = 3.0
-        mock_algo_instance.u_ADC = 4.0
-        mock_algo_instance.u_gamma = 5.0
-        mock_algo_instance.k = 6.0
-        mock_u_diff_temp_rate = {"Sentinel-2A": [7.0]}
+        rut = FakeRUT()
+        self.tool.set_contributor(rut, "noise", True)
+        self.assertTrue(rut.unc_select_noise)
 
-        with mock.patch(
-            "s2_rut_python.interface.TIME_INIT",
-            {"Sentinel-2A": datetime.datetime(2015, 6, 23, 10, 00)},
-        ):
-            with mock.patch(
-                "s2_rut_python.interface.conf.u_diff_temp_rate", mock_u_diff_temp_rate
-            ):
-                # Initialize the S2RUT object and run the get_band_unc_parameters method
-                rut = S2RUT()
-                result = rut.get_band_unc_parameters(mock_ds, "B01")
+    def test_set_contributor_KeyError(self):
+        class FakeRUT:
+            pass
 
-                # Define the expected keys
-                expected_keys = [
-                    "a",
-                    "e_sun",
-                    "u_sun",
-                    "tecta",
-                    "quant",
-                    "alpha",
-                    "beta",
-                    "u_diff_cos",
-                    "u_diff_k",
-                    "u_diff_temp",
-                    "u_ADC",
-                    "u_gamma",
-                    "k",
-                ]
+        with self.assertRaises(KeyError):
+            self.tool.set_contributor(FakeRUT(), "not_a_contributor", True)
 
-                # Check if all expected keys are in the result dictionary
-                for key in expected_keys:
-                    self.assertIn(key, result)
+    def test__get_contributor_component_systematic(self):
+        self.assertEqual(self.tool._get_contributor_component("u_sys"), "systematic")
 
-                expected_values = {
-                    "a": 1.0,
-                    "e_sun": 1.0,
-                    "u_sun": 0.05,
-                    "tecta": 1.0,
-                    "quant": 10000,
-                    "alpha": 1.0,
-                    "beta": 1.0,
-                    "u_diff_cos": 2.0,
-                    "u_diff_k": 3.0,
-                    "u_diff_temp": 7 * -0.06023271731690623,
-                    "u_ADC": 4.0,
-                    "u_gamma": 5.0,
-                    "k": 6.0,
-                }
+    def test__get_contributor_component_random(self):
+        self.assertEqual(self.tool._get_contributor_component("u_noise"), "random")
 
-                for key in expected_values:
-                    self.assertEqual(result[key], expected_values[key])
+    def test__get_contributor_component_unknown(self):
+        with self.assertRaises(ValueError):
+            self.tool._get_contributor_component("u_unknown")
 
-    def test_return_unc_components(self):
-        s2rut = S2RUT()
-        unc_comp = s2rut.return_unc_components()
+    def test__build_uncertainty_attrs_grouped(self):
+        attrs = self.tool._build_uncertainty_attrs(
+            self.ds, "B01", "grouped", "systematic"
+        )
+        self.assertIn("Systematic", attrs["long_name"])
+        self.assertEqual(attrs["units"], self.ds["B01"].attrs["units"])
+        self.assertEqual(attrs["standard_name"], "uncertainty_systematic_B01")
 
-        # Check if the returned dictionary is as expected
-        self.assertIn("random", unc_comp)
-        self.assertIn("systematic", unc_comp)
+    def test__build_uncertainty_attrs_per_contributor(self):
+        attrs = self.tool._build_uncertainty_attrs(
+            self.ds, "B01", "per_contributor", "u_noise"
+        )
+        self.assertIn("Noise", attrs["long_name"])
+        self.assertIn("u_noise", attrs["description"])
+        self.assertEqual(attrs["units"], self.ds["B01"].attrs["units"])
 
-    @mock.patch("s2_rut_python.interface.S2RUT.get_band_unc_parameters")
-    @mock.patch("s2_rut_python.interface.MyS2RUTAlgo.unc_calculation")
-    def test_run(self, mock_unc_calculation, mock_get_band_unc_parameters):
-        # Mock the return value of the unc_calculation method
-        mock_unc_calculation.return_value = 2 * np.ones((5, 5))
-        mock_get_band_unc_parameters.return_value = {
-            "a": 1.0,
-            "e_sun": 1.0,
-            "u_sun": 1.0,
-            "tecta": np.ones((10, 10)),
-            "quant": 1.0,
-            "alpha": 1.0,
-            "beta": 1.0,
-            "u_diff_cos": 1.0,
-            "u_diff_k": 1.0,
-            "u_diff_temp": 7.532935146264837,
-            "u_ADC": 1.0,
-            "u_gamma": 1.0,
-            "k": 1.0,
+    def test__compute_grouped_uncertainty_systematic(self):
+        unc_contributors = {
+            "u_sys": np.ones((2, 2)),
+            "u_stray_sys": np.ones((2, 2)) * 2,
+            "u_diff": np.ones((2, 2)) * 3,
+        }
+        result = self.tool._compute_grouped_uncertainty("systematic", unc_contributors)
+        expected = np.sqrt((1**2) + (2**2) + (3**2)) * np.ones((2, 2))
+        np.testing.assert_allclose(result, expected)
+
+    def test__compute_grouped_uncertainty_random(self):
+        unc_contributors = {
+            "u_noise": np.ones((2, 2)) * 2,
+            "u_adc": np.ones((2, 2)) * 3,
+        }
+        result = self.tool._compute_grouped_uncertainty("random", unc_contributors)
+        expected = np.sqrt((2**2) + (3**2)) * np.ones((2, 2))
+        np.testing.assert_allclose(result, expected)
+
+    def test__configure_contributors_default(self):
+        rut = mock.MagicMock()
+        with mock.patch.object(self.tool, "set_contributor") as mocked:
+            self.tool._configure_contributors(rut, None)
+
+        self.assertEqual(mocked.call_count, len(U_CONTRIBUTIONS))
+        for call in mocked.call_args_list:
+            self.assertTrue(call.args[2])
+
+    def test__configure_contributors_subset(self):
+        rut = mock.MagicMock()
+        subset = ["noise", "adc"]
+
+        with mock.patch.object(self.tool, "set_contributor") as mocked:
+            self.tool._configure_contributors(rut, subset)
+
+        call_map = {c.args[1]: c.args[2] for c in mocked.call_args_list}
+        self.assertTrue(call_map["noise"])
+        self.assertTrue(call_map["adc"])
+        self.assertFalse(call_map["ds"])
+
+    def test__normalize_data_vars(self):
+        self.assertEqual(
+            self.tool._normalize_data_vars(True), list(MEAS_VAR_RES.keys())
+        )
+        self.assertEqual(self.tool._normalize_data_vars("B01"), ["B01"])
+        self.assertEqual(self.tool._normalize_data_vars(["B01", "B09"]), ["B01", "B09"])
+
+    def test__store_grouped_uncertainties(self):
+        ds = self.ds.copy(deep=True)
+        valid_mask = ds["B01"] != 0
+        unc_contributors = {
+            "u_sys": np.ones((2, 2)),
+            "u_noise": np.ones((2, 2)) * 2,
+            "u_stray_sys": np.ones((2, 2)) * 3,
+            "u_diff": np.ones((2, 2)) * 4,
+            "u_adc": np.ones((2, 2)) * 5,
         }
 
-        band_names = ["B01"]
-        result = self.s2_rut.run(self.mock_dataset, band_names)
-
-        xr.testing.assert_equal(
-            result,
-            xr.Dataset(
-                data_vars={
-                    "B01": (
-                        ["y_60m", "x_60m"],
-                        np.ones((5, 5)),
-                        {
-                            "PHYSICAL_GAINS": 1,
-                            "SOLAR_IRRADIANCE": {"#text": 1},
-                            "ALPHA": 1,
-                            "BETA": 1,
-                            "unc_comps": [
-                                "u_systematic_B01",
-                                "u_random_B01",
-                            ],
-                        },
-                    ),
-                    "u_systematic_B01": (["y_60m", "x_60m"], 2 * np.ones((5, 5))),
-                    "u_random_B01": (["y_60m", "x_60m"], 2 * np.ones((5, 5))),
-                },
-                coords={
-                    "y": (["y_60m"], np.ones(5)),
-                    "x": (["x_60m"], np.ones(5)),
-                },
-                attrs={
-                    "platform": "Sentinel-2A",
-                    "U": 0.05,
-                    "QUANTIFICATION_VALUE": 10000,
-                    "DATASTRIP_SENSING_START": "2015-06-01 10:00:00",
-                },
-            ),
+        names = self.tool._store_grouped_uncertainties(
+            ds, "B01", unc_contributors, valid_mask
         )
 
-        np.testing.assert_equal(mock_unc_calculation.call_args[0][0], np.ones((5, 5)))
-        self.assertEqual(mock_unc_calculation.call_args[0][1], 0)
-        self.assertEqual(mock_unc_calculation.call_args[0][2], "Sentinel-2A")
-        self.assertEqual(mock_unc_calculation.call_count, 2)
+        self.assertIn("u_systematic_B01", names)
+        self.assertIn("u_random_B01", names)
+        self.assertTrue(np.isnan(ds.unc["B01"]["u_random_B01"].value.values[0, 1]))
+        self.assertEqual(
+            ds.unc["B01"]["u_random_B01"].value.attrs["units"], ds["B01"].attrs["units"]
+        )
+
+    def test__store_per_contributor_uncertainties(self):
+        ds = self.ds.copy(deep=True)
+        valid_mask = ds["B01"] != 0
+        unc_contributors = {
+            "u_noise": np.ones((2, 2)),
+            "u_unknown": np.ones((2, 2)) * 2,
+        }
+
+        with mock.patch("s2_rut_python.interface.warnings.warn") as mocked_warn:
+            names = self.tool._store_per_contributor_uncertainties(
+                ds, "B01", unc_contributors, valid_mask
+            )
+
+        self.assertIn("u_noise_B01", names)
+        self.assertIn("u_unknown_B01", names)
+        self.assertTrue(np.isnan(ds.unc["B01"]["u_noise_B01"].value.values[0, 1]))
+        mocked_warn.assert_called_once()
+
+    def test__apply_zero_reflectance_mask(self):
+        ds = self.ds.copy(deep=True)
+        valid_mask = ds["B01"] != 0
+        self.tool._apply_zero_reflectance_mask(ds, "B01", valid_mask)
+        self.assertTrue(np.isnan(ds["B01"].values[0, 1]))
+        self.assertEqual(ds["B01"].values[0, 0], 1.0)
+
+    def test_return_sza_var(self):
+        result = self.tool.return_sza_var(self.ds, "B01")
+        self.assertEqual(result, "solar_zenith_angle")
+
+    def test_return_sza_var_with_interp(self):
+        ds = self.ds.copy(deep=True)
+        ds["solar_zenith_angle"] = xr.DataArray(np.ones((1, 1)), dims=("a", "b"))
+        ds["solar_zenith_angle_interp"] = xr.DataArray(
+            np.ones((2, 2)), dims=("y_60m", "x_60m")
+        )
+
+        result = self.tool.return_sza_var(ds, "B01")
+        self.assertEqual(result, "solar_zenith_angle_interp")
+
+    def test_return_sza_var_missing(self):
+        ds = self.ds.drop_vars("solar_zenith_angle")
+        with self.assertRaises(KeyError):
+            self.tool.return_sza_var(ds, "B01")
+
+    def test_return_metadata(self):
+        metadata = self.tool.return_metadata(self.ds, ["B01"])
+        self.assertEqual(metadata["spacecraft"], "Sentinel-2A")
+        self.assertIn("B01", metadata["Esun"])
+        self.assertIn("B01", metadata["alpha"])
+
+    def test_return_metadata_missing(self):
+        ds = self.ds.copy(deep=True)
+        ds.attrs.pop("platform", None)
+        ds.attrs["product_metadata"].pop("platform", None)
+        with self.assertRaises(KeyError):
+            self.tool.return_metadata(ds, ["B01"])
+
+    @mock.patch("s2_rut_python.interface.S2RUT_L1")
+    def test_run_group_unc(self, mock_rut_cls):
+        ds = self.ds.copy(deep=True)
+
+        rut_instance = mock.MagicMock()
+        for contributor in U_CONTRIBUTIONS:
+            setattr(rut_instance, f"unc_select_{contributor}", True)
+
+        rut_instance.unc_calculation_abs.return_value = (
+            np.ones((2, 2)),
+            {
+                "u_sys": np.ones((2, 2)),
+                "u_noise": np.ones((2, 2)) * 2,
+                "u_stray_sys": np.ones((2, 2)) * 3,
+                "u_diff": np.ones((2, 2)) * 4,
+                "u_adc": np.ones((2, 2)) * 5,
+            },
+        )
+        mock_rut_cls.return_value = rut_instance
+
+        out = self.tool.run(ds=ds, data_vars=["B01"], group_unc=True)
+
+        self.assertIn("u_random_B01", list(out.unc["B01"].keys()))
+        self.assertIn("u_systematic_B01", list(out.unc["B01"].keys()))
+        self.assertTrue(np.isnan(out["B01"].values[0, 1]))
+        rut_instance.unc_calculation_abs.assert_called_once()
+
+        call_args = rut_instance.unc_calculation_abs.call_args
+        self.assertEqual(call_args.args[2], self.tool.band_id["B01"])
+        sun_zenith_arg = call_args.args[4]
+        self.assertEqual(len(sun_zenith_arg), len(MEAS_VAR_RES))
+        self.assertIsNotNone(sun_zenith_arg[self.tool.band_id["B01"]])
+
+    @mock.patch("s2_rut_python.interface.S2RUT_L1")
+    def test_run_per_contributor(self, mock_rut_cls):
+        ds = self.ds.copy(deep=True)
+
+        rut_instance = mock.MagicMock()
+        for contributor in U_CONTRIBUTIONS:
+            setattr(rut_instance, f"unc_select_{contributor}", True)
+
+        rut_instance.unc_calculation_abs.return_value = (
+            np.ones((2, 2)),
+            {
+                "u_noise": np.ones((2, 2)) * 2,
+            },
+        )
+        mock_rut_cls.return_value = rut_instance
+
+        out = self.tool.run(
+            ds=ds, data_vars="B01", group_unc=False, subset_unc=["noise"]
+        )
+
+        self.assertIn("u_noise_B01", list(out.unc["B01"].keys()))
+        self.assertTrue(rut_instance.unc_select_noise)
+        self.assertFalse(rut_instance.unc_select_ds)
+
+        call_args = rut_instance.unc_calculation_abs.call_args
+        self.assertEqual(call_args.args[2], self.tool.band_id["B01"])
+        sun_zenith_arg = call_args.args[4]
+        self.assertEqual(len(sun_zenith_arg), len(MEAS_VAR_RES))
+        self.assertIsNotNone(sun_zenith_arg[self.tool.band_id["B01"]])
 
 
 if __name__ == "__main__":

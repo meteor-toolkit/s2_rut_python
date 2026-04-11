@@ -5,31 +5,56 @@ Pure Python portion of Javi's Sentinel-2 radiometric uncertainty tool.
 
 Usage
 =====
-Files are read into an xarray format for use with our other tools. Eoio capabilities are used for accessing  and
+Files are read into an xarray format for use with our other tools. eoio capabilities are used for accessing and
 extracting the metadata, used for calculating the uncertainties.
 
-Band names takes in one band or a list of **Sentinel-2 band names**: B01, B02, B03, B03, B04, B05, B06, B07, B08, B8A, B09,
+Band selection takes one band or a list of **Sentinel-2 band names**: B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09,
 B10, B11, B12.
 
-There are two types of possible uncertainty information types: **'total'** which returns the total uncertainty, while
-**'components'** provides three separate uncertainties: **'systematic**, **'random'**, and **'structured'**.
+The current interface entry point is ``S2RUTTool`` and uncertainties can be returned either:
 
-Each individual type of components is categorised according to Gorrono *et.al.* (2017).
+* grouped by correlation component (``u_systematic_<band>``, ``u_random_<band>``), or
+* per contributor (for example ``u_noise_<band>``).
+
+Each individual type of components is categorised according to Gorrono *et al.* (2017).
 
 
 Usage of this module is as follows ::
 
-    s2rut = S2RUT()
-    test = s2rut.run_rut(
-        data_set=s2_ds,
-        band_names=['B01'],
-        unc_info='total')
+    from s2_rut_python.interface import S2RUTTool
+
+    s2rut = S2RUTTool()
+    ds_out = s2rut.run(
+        ds=s2_ds,
+        data_vars=['B01'],
+        group_unc=True,
+    )
+
+To run per-contributor uncertainties ::
+
+    ds_out = s2rut.run(
+        ds=s2_ds,
+        data_vars=['B01'],
+        group_unc=False,
+    )
+
+To limit contributors to a subset ::
+
+    ds_out = s2rut.run(
+        ds=s2_ds,
+        data_vars=['B01'],
+        group_unc=False,
+        subset_unc=['noise', 'adc', 'gamma'],
+    )
+
+Uncertainty variables are stored in the obsarray uncertainty accessor (for example
+``ds_out.unc['B01']``). Reflectance zero-values are masked to ``NaN`` before return.
 
 Example
 =======
-An example illustrating the circumstances in which your code would normally be used is available in run_s2rut_example.py.
-Two different input cases are demonstrated: Sentinel-2A and Sentinel-2B in .SAFE (Standard Archive Format for Europe)
-data format.
+An up-to-date runnable example is available in ``examples/run_example.py``.
+It demonstrates reading Sentinel-2 L1C data with eoio, selecting an ROI subset for the current product, running ``S2RUTTool.run(...)``,
+and plotting reflectance, random uncertainty [%], and systematic uncertainty [%].
 
 Virtual environment
 -------------------
@@ -47,7 +72,7 @@ and then activate it on Windows by using ``venv/Scripts/activate``.
 Installation
 ------------
 
-Install your package and its dependancies by using::
+Install your package and its dependencies by using::
 
     pip install -e .
 

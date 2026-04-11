@@ -1,0 +1,16 @@
+{
+	"input_L1C":"/mount/opt-mpc/s2mpc/work/aderu/S2_RUT/Data/S2A_MSIL1C_20230208T103211_N0509_R108_T32UNB_20230208T141004.SAFE",
+	"input_bands": ["B01", "B02", "B8A", "B09", "B12"],
+	"input_contributors":"Data/unc_contributors.json",
+	"input_noise_model":"Data/noise_model_QCC_binned.json",
+	
+	"path_output":"/mount/opt-mpc/s2mpc/work/aderu/S2_RUT/test/",
+	"unc_per_contributor":false,
+	"doplot":false,	
+	
+	"roi_lat":"",
+	"roi_lon":"", 
+	"roi_width":1000,
+	"roi_height":1000
+		
+}
