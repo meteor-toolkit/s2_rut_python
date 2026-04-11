@@ -3,6 +3,11 @@ s2_rut_python
 
 Pure Python portion of Javi's Sentinel-2 radiometric uncertainty tool.
 
+Beta Version
+===============
+
+**WARNING:** This software is a beta version, results should be used with caution. Please share any feedback you have after using the tool.
+
 Usage
 =====
 Files are read into an xarray format for use with our other tools. eoio capabilities are used for accessing and
