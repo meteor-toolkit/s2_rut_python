@@ -10,14 +10,23 @@ from shapely import wkt
 
 from s2_rut_python.interface import S2RUTTool
 
-if socket.gethostname() == "lyon.npl.co.uk" or socket.gethostname() == "leipzig.npl.co.uk" or 'leiden' in socket.gethostname():
+if (
+    socket.gethostname() == "lyon.npl.co.uk"
+    or socket.gethostname() == "leipzig.npl.co.uk"
+    or "leiden" in socket.gethostname()
+):
     DATA_DIRECTORY = "/mnt/t/data/"
 else:
     DATA_DIRECTORY = r"T:\ECO\EOServer\data"
 
 
 # Define input path from test datasets
-SAFE_PATH = os.path.join(DATA_DIRECTORY, "unittest_datasets", "S2MSIL1C", "S2A_MSIL1C_20251128T111431_N0511_R137_T30UXE_20251128T121631.SAFE")
+SAFE_PATH = os.path.join(
+    DATA_DIRECTORY,
+    "unittest_datasets",
+    "S2MSIL1C",
+    "S2A_MSIL1C_20251128T111431_N0511_R137_T30UXE_20251128T121631.SAFE",
+)
 print("SAFE PATH:", SAFE_PATH)
 
 # Define ROI
@@ -32,7 +41,7 @@ roi_string = "POLYGON ((\
 geom = wkt.loads(roi_string)
 
 # Read the dataset with eoio, selecting only a few bands and auxiliary variables for efficiency.
-bands= ["B01", "B03", "B09"]
+bands = ["B01", "B03", "B09"]
 ds = read(
     SAFE_PATH,
     vars_sel={

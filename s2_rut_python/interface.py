@@ -1,4 +1,4 @@
-"""s2_rut_interface - Sentinel-2A and Sentinel-2B L1 uncertainty calculation class """
+"""s2_rut_interface - Sentinel-2A and Sentinel-2B L1 uncertainty calculation class"""
 
 import datetime
 import os
@@ -13,7 +13,6 @@ from processor_tools.utils.dict_tools import get_value
 THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 import s2_rut_python._vendor  # noqa: F401
 from S2RUT import S2RUT_L1
-
 
 __author__ = [
     "Rasma Ormane <rasma.ormane@npl.co.uk>",
