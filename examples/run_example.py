@@ -1,7 +1,6 @@
 """example: read a Sentinel-2 L1C SAFE product and run S2-RUT."""
 
 import os
-import glob
 import socket
 
 import matplotlib.pyplot as plt
