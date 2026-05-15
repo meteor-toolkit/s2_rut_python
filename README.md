@@ -6,6 +6,9 @@ Pure Python port of ESA's Sentinel-2 radiometric uncertainty tool.
 reflectance data, following the methodology of Gorrono *et al.* (2017). Outputs are
 stored in the `obsarray` uncertainty accessor format.
 
+> **Warning:** This software is in beta. Results should be used with
+> caution. Please share any feedback via the issue tracker.
+
 ## Usage
 
 ### Virtual environment
