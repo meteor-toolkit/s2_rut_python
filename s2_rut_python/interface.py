@@ -1,4 +1,4 @@
-"""s2_rut_interface - Sentinel-2A and Sentinel-2B L1 uncertainty calculation class """
+"""s2_rut_interface - Sentinel-2A and Sentinel-2B L1 uncertainty calculation class"""
 
 import datetime
 import os
@@ -24,9 +24,7 @@ __author__ = [
 __all__ = ["S2RUTTool"]
 
 INPUT_CONTRIBUTORS = os.path.abspath(
-    os.path.join(
-        os.path.dirname(THIS_DIRECTORY), "third-party", "Data", "unc_contributors.json"
-    )
+    os.path.join(os.path.dirname(THIS_DIRECTORY), "third-party", "Data", "unc_contributors.json")
 )
 MEAS_VAR_RES = {
     "B01": 60,
@@ -139,8 +137,7 @@ class S2RUTTool:
             return "random"
         else:
             raise ValueError(
-                f"Contributor {contrib_base} not categorized as systematic or random. "
-                f"Defaulting to random."
+                f"Contributor {contrib_base} not categorized as systematic or random. Defaulting to random."
             )
 
     def _build_uncertainty_attrs(
@@ -166,13 +163,9 @@ class S2RUTTool:
             long_name = f"{component_or_contributor.capitalize()} radiometric uncertainty for {band_long_name}"
             description = f"Radiometric uncertainty ({component_or_contributor}) from all {component_or_contributor} contributors for {band}"
         else:  # per_contributor
-            contrib_name = (
-                component_or_contributor.replace("u_", "").replace("_", " ").title()
-            )
+            contrib_name = component_or_contributor.replace("u_", "").replace("_", " ").title()
             long_name = f"{contrib_name} radiometric uncertainty for {band_long_name}"
-            description = (
-                f"Radiometric uncertainty ({component_or_contributor}) for {band}"
-            )
+            description = f"Radiometric uncertainty ({component_or_contributor}) for {band}"
 
         attrs = {
             "long_name": long_name,
@@ -182,9 +175,7 @@ class S2RUTTool:
         }
         return attrs
 
-    def _compute_grouped_uncertainty(
-        self, component: str, unc_contributors: Dict
-    ) -> np.ndarray:
+    def _compute_grouped_uncertainty(self, component: str, unc_contributors: Dict) -> np.ndarray:
         """
         Compute grouped uncertainty for a correlation component (systematic or random).
 
@@ -219,9 +210,7 @@ class S2RUTTool:
             for contributor in U_CONTRIBUTIONS:
                 self.set_contributor(rut, contributor, True)
 
-    def _normalize_data_vars(
-        self, data_vars: Optional[Union[List[str], str, bool]]
-    ) -> List[str]:
+    def _normalize_data_vars(self, data_vars: Optional[Union[List[str], str, bool]]) -> List[str]:
         """
         Normalize data_vars parameter into a list of band names.
 
@@ -312,9 +301,7 @@ class S2RUTTool:
             ]
             masked_unc = np.where(valid_mask.values, unc, np.nan)
             unc_name = f"{contributor}_{band}"
-            unc_attrs = self._build_uncertainty_attrs(
-                ds, band, "per_contributor", contributor
-            )
+            unc_attrs = self._build_uncertainty_attrs(ds, band, "per_contributor", contributor)
             ds.unc[band][unc_name] = (
                 ds[band].dims,
                 masked_unc,
@@ -328,9 +315,7 @@ class S2RUTTool:
             created_names.append(unc_name)
         return created_names
 
-    def _apply_zero_reflectance_mask(
-        self, ds: xr.Dataset, band: str, valid_mask: xr.DataArray
-    ) -> None:
+    def _apply_zero_reflectance_mask(self, ds: xr.Dataset, band: str, valid_mask: xr.DataArray) -> None:
         """
         Apply zero-reflectance masking to the reflectance band.
         Note: Uncertainty variables are already masked during creation.
@@ -371,9 +356,7 @@ class S2RUTTool:
         # Process each band.
         for band in data_vars:  # type: ignore[union-attr]
             if band not in ds:
-                warnings.warn(
-                    f"{band} not in dataset; skipping uncertainty calculation."
-                )
+                warnings.warn(f"{band} not in dataset; skipping uncertainty calculation.")
                 continue
 
             # Validate solar zenith angle availability and compute valid pixel mask.
@@ -398,13 +381,9 @@ class S2RUTTool:
 
             # Store uncertainties (grouped or per-contributor).
             if group_unc:
-                self._store_grouped_uncertainties(
-                    ds, band, unc_contributors, valid_mask
-                )
+                self._store_grouped_uncertainties(ds, band, unc_contributors, valid_mask)
             else:
-                self._store_per_contributor_uncertainties(
-                    ds, band, unc_contributors, valid_mask
-                )
+                self._store_per_contributor_uncertainties(ds, band, unc_contributors, valid_mask)
 
             # Apply zero-reflectance masking.
             self._apply_zero_reflectance_mask(ds, band, valid_mask)
@@ -436,9 +415,7 @@ class S2RUTTool:
             f"with resolution {get_value(ds[band].attrs, 'geometry_id')}."
         )
 
-    def return_metadata(
-        self, ds: xr.Dataset, band_names: Sequence[str]
-    ) -> Union[Dict, KeyError]:
+    def return_metadata(self, ds: xr.Dataset, band_names: Sequence[str]) -> Union[Dict, KeyError]:
         """
         Extract required metadata for uncertainty calculation from the dataset read in by eoio.
 
@@ -478,21 +455,15 @@ class S2RUTTool:
             elif path in ds.attrs["product_metadata"]:
                 metadata[key] = ds.attrs["product_metadata"][path]
             else:
-                raise KeyError(
-                    f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'."
-                )
+                raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'.")
 
         for key, path in VAR_MTD_MAP.items():
             try:
                 metadata[key] = {
-                    band: ds[band].attrs["product_metadata"][path]
-                    for band in band_names
-                    if band in ds.data_vars
+                    band: ds[band].attrs["product_metadata"][path] for band in band_names if band in ds.data_vars
                 }
             except KeyError:
-                raise KeyError(
-                    f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'."
-                )
+                raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'.")
 
         return metadata
 
