@@ -1,17 +1,14 @@
 
 
 
-import sys
 import os
 
-import matplotlib
 from eoio import read
 
 import s2_rut_python._vendor  # noqa: F401
 
 from S2RUT import S2RUT_L1
 
-import os
 this_directory = os.path.dirname(__file__)
 
 file = os.path.abspath(os.path.join(os.path.dirname(this_directory), 'third-party', 'Data', 'S2A_MSIL1C_20210310T084801_N0500_R107_T33KWP_20230525T152740.SAFE'))
@@ -160,7 +157,6 @@ for unc in ds.data_vars:
             plt.colorbar()
             plt.show()
         else:
-            import numpy as np
             (100*ds[unc] / ds['B01']).plot(robust=True)#, vmin=np.nanpercentile(100*ds[unc].values / ds['B01'].values, 1), vmax=np.nanpercentile(100*ds[unc].values / ds['B01'].values, 99))  # relative uncertainty in percentage
             plt.title(f"{unc} (no reference uncertainty available)")
             # plt.colorbar()

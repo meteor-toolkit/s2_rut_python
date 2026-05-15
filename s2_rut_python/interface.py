@@ -3,16 +3,16 @@
 import datetime
 import os
 import warnings
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
-import obsarray  # type: ignore[import-untyped]
+import obsarray  # type: ignore[import-untyped]  # noqa: F401
 import xarray as xr
 import numpy as np
 from processor_tools.utils.dict_tools import get_value
 
 THIS_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
-import s2_rut_python._vendor  # noqa: F401
-from S2RUT import S2RUT_L1
+import s2_rut_python._vendor  # noqa: F401, E402
+from S2RUT import S2RUT_L1  # noqa: E402
 
 
 __author__ = [
@@ -21,7 +21,7 @@ __author__ = [
     "Maddie Stedman <maddie.stedman@npl.co.uk>",
 ]
 
-__all__ = ["S2RUTTool", "MyS2RUTAlgo"]
+__all__ = ["S2RUTTool"]
 
 INPUT_CONTRIBUTORS = os.path.abspath(
     os.path.join(
@@ -398,11 +398,11 @@ class S2RUTTool:
 
             # Store uncertainties (grouped or per-contributor).
             if group_unc:
-                created_names = self._store_grouped_uncertainties(
+                self._store_grouped_uncertainties(
                     ds, band, unc_contributors, valid_mask
                 )
             else:
-                created_names = self._store_per_contributor_uncertainties(
+                self._store_per_contributor_uncertainties(
                     ds, band, unc_contributors, valid_mask
                 )
 
@@ -424,7 +424,7 @@ class S2RUTTool:
         solar_var = "solar_zenith_angle"
         for solar_var in [
             "solar_zenith_angle",
-            f"solar_zenith_angle_interp",
+            "solar_zenith_angle_interp",
             f"solar_zenith_angle_{get_value(ds[band].attrs, 'geometry_id')}",
         ]:
             if solar_var not in ds:
@@ -446,7 +446,7 @@ class S2RUTTool:
         :param band_names: list of band names for which to extract metadata
         :return: dictionary of metadata parameters required for uncertainty calculation
         """
-        metadata = {
+        metadata: Dict[str, Any] = {
             "spacecraft": None,
             "quant": None,
             "A": [],
@@ -489,7 +489,7 @@ class S2RUTTool:
                     for band in band_names
                     if band in ds.data_vars
                 }
-            except KeyError as e:
+            except KeyError:
                 raise KeyError(
                     f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'."
                 )

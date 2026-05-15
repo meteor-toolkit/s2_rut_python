@@ -4,7 +4,7 @@ import unittest.mock as mock
 import numpy as np
 import xarray as xr
 
-from s2_rut_python.interface import COMPONENTS, MEAS_VAR_RES, U_CONTRIBUTIONS, S2RUTTool
+from s2_rut_python.interface import MEAS_VAR_RES, U_CONTRIBUTIONS, S2RUTTool
 
 
 class TestS2RUTTool(unittest.TestCase):
