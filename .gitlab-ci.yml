@@ -126,8 +126,8 @@ test_report:
 pages:
   extends: .py_venv
   stage: Readthedocs Documentation
-  needs: []
   script:
+    - pip install -e ".[dev,docs]"
     - sphinx-build docs public -b html
   artifacts:
     paths:
@@ -142,8 +142,8 @@ pages:
 pdf_make:
   extends: .py_venv
   stage: Build latex Documentation
-  needs: []
   script:
+    - pip install -e ".[dev,docs]"
     - sphinx-build docs latex -b latex
     - cp -r latex ./quality_documentation/latex
   artifacts:
