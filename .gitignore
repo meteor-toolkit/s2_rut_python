@@ -1,6 +1,9 @@
 # Mypy cache
 .mypy_cache
 
+# Scratch files (local experiments, not committed)
+examples/scratch/
+
 # Compiles docs for gitlab pages
 public
 latex
@@ -74,8 +77,9 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/sphinx/_build/
-docs/sphinx/content/api
+docs/_build/
+docs/content/developer/generated
+docs/content/user/generated
 
 # PyBuilder
 target/
@@ -113,12 +117,8 @@ ENV/
 # mypy
 .mypy_cache/
 
+# ruff
+.ruff_cache/
+
 # IDE settings
 .vscode/.git.old
-
-# data
-*.SAFE
-*.SAFE/*
-
-# plots
-*.png

@@ -1,15 +1,22 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "s2_rut_python"
 dynamic = ["version"]
 description = "Pure Python port of ESA's Sentinel-2 radiometric uncertainty tool"
-readme = "README.rst"
-license = { text = "None" }
-authors = [
-    { name = "Maddie Stedman", email = "maddie.stedman@npl.co.uk" }
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [{name = "MetEOR Toolkit Team", email = "team@comet-toolkit.org"}]
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
     "numpy",
@@ -18,33 +25,56 @@ dependencies = [
     "obsarray",
     "processor_tools",
 ]
-classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-]
 
 [project.urls]
-Homepage = "http://gitlab.npl.co.uk/eco/tools/s2_rut_python"
+Homepage = "https://comet-toolkit.org/meteor"
 
 [project.optional-dependencies]
 dev = [
+    "ruff",
+    "mypy",
     "pre-commit",
-    "tox",
-    "sphinx",
-    "sphinx_book_theme",
-    "sphinx_rtd_theme",
+    "pytest",
+    "pytest-html",
+    "pytest-cov",
     "ipython",
-    "sphinx_design",
 ]
-
-[tool.setuptools]
-include-package-data = true
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+    "sphinx_book_theme",
+    "sphinx_design",
+    "sphinx_automodapi",
+    "myst_parser",
+]
 
 [tool.setuptools.packages.find]
 exclude = ["tests", "tests.*"]
 
-[tool.setuptools.dynamic]
-version = { attr = "s2_rut_python.__version__" }
+[tool.setuptools_scm]
+# version inferred from git tags (e.g. v0.1.0); no extra config needed
+
+[tool.mypy]
+allow_untyped_globals = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["s2_rut_python.tests.*"]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = [
+    "s2_rut_python/tests",
+    "s2_rut_python/utils",
+    "tests",
+]
+
+[tool.ruff]
+line-length = 120
+exclude = ["docs"]
+
+[tool.ruff.lint]
+extend-ignore = ["W291"]
+
+[tool.ruff.lint.per-file-ignores]
+"s2_rut_python/__init__.py" = ["E402", "F401"]
