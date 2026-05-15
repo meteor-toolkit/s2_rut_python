@@ -1,165 +1,169 @@
-# Default image, if not specified
-image: "python:3.10"
+# Default image
+image: "python:3.13"
 
-stages:
-  - Build Documentation
-  - Publish Documentation
-  - Static Analysis
-  - Test
-  - Full test
-  - Publish Pages
-
-### Setup cache ###
-# See https://docs.gitlab.com/ee/ci/caching/index.html
-#
-# Change pip's cache directory to be inside the project directory since we can
-# only cache local items.
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-  GIT_SUBMODULE_STRATEGY: recursive
-# Pip's cache doesn't store the python packages
-# https://pip.pypa.io/en/stable/reference/pip_install/#caching
-#
-# If you want to also cache the installed packages, you have to install
-# them in a virtualenv and cache it as well.
+
+stages:
+  - Static Analysis
+  - Readthedocs Documentation
+  - Build latex Documentation
+  - Publish latex Documentation
+  - Test
+  - Publish test report
+  - Combine quality documentation
+
 cache:
   key: ${CI_JOB_NAME}
   paths:
     - .cache/pip
-    - .tox/
     - venv/
 
-
-# Make a template for steps that use a python virtual env
+# Virtual-environment template used by most jobs.
 .py_venv:
   before_script:
-    # Store the CI_JOB_TOKEN so that jobs can access other repositories with the access rights of the triggering user:
     - echo -e "machine gitlab.npl.co.uk\nlogin gitlab-ci-token\npassword ${CI_JOB_TOKEN}" > ~/.netrc
-    # Debug output
-    - ls -la
-    - pwd
-    - python -c "import sys;print(sys.path)"
-    - python --version
-    # Set up git for test commits
-    - git config --global user.name "Gitlabs CI Testing"
-    - git config --global user.email "test@example.com"
-    # Make a virtual environment to install deps into (this will be cached for each step)
     - python --version
     - pip install virtualenv
     - virtualenv venv
     - source venv/bin/activate
-    - pip install .[dev]
+    - pip install -e ".[dev]"
 
-### Linting ###
+### Static Analysis ###
 
-black:
-  image: 
-    name: cytopia/black
-    entrypoint: [""]
+ruff-format:
+  extends: .py_venv
   stage: Static Analysis
   script:
-    - black --check s2_rut_python
+    - ruff format --check s2_rut_python
+  allow_failure: true
+  needs: []
+
+ruff-lint:
+  extends: .py_venv
+  stage: Static Analysis
+  script:
+    - ruff check s2_rut_python
   allow_failure: true
   needs: []
 
 mypy:
-  image: python:3.10
-#    name: grktsh/mypy
-#    entrypoint: [ "" ]
+  extends: .py_venv
   stage: Static Analysis
   script:
-    - pip install mypy --quiet
-    - mypy s2_rut_python --install-types --non-interactive --exclude s2_rut_python
-    - mypy s2_rut_python --exclude s2_rut_python
+    - mypy s2_rut_python
   allow_failure: true
-  needs: [ ]
+  needs: []
 
 ### Tests ###
 
-.tox:
+.pytest:
   extends: .py_venv
   script:
-    - pwd
-    - ls -l
-    - export PYTHONPATH="$PYTHONPATH:."
-    - python -c "import sys;print(sys.path)"
-    - pip install tox
-    - tox
+    - mkdir -p test_report
+    - >
+      pytest
+      --html=test_report/report.html
+      --cov-report html:test_report/cov_report
+      --cov-report xml:test_report/coverage.xml
+      --junitxml=test_report/junit.xml
+      --cov=s2_rut_python
   coverage: '/^TOTAL.+?(\d+\%)$/'
   needs: []
+  artifacts:
+    when: always
+    paths:
+      - test_report/
+    reports:
+      junit: test_report/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: test_report/coverage.xml
+    expire_in: 1 hour
 
-tox-3.10:
-    extends: ".tox"
-    stage: "Test"
-    image: "python:3.10"
-  
-tox_slowtests:
-    extends: .py_venv
-    stage: "Full test"
-    rules:
-      # Run for scheduled or triggered builds
-      - if: '$CI_PIPELINE_SOURCE == "trigger"'
-        when: always
-      - if: '$CI_PIPELINE_SOURCE == "schedule"'
-        when: always        
-      # Run for tags
-      - if: '$CI_COMMIT_TAG'
-        when: always
-      # And allow manual runs
-      - if: '$CI_COMMIT_BRANCH'
-        when: manual
-        allow_failure: true
-    script:
-      - pwd
-      - ls -l
-      - export PYTHONPATH="$PYTHONPATH:."
-      - python -c "import sys;print(sys.path)"
-      - pip install tox
-      - tox -- --runslow
-    coverage: '/^TOTAL.+?(\d+\%)$/'
-    needs: []
+test-3.11:
+  extends: .pytest
+  stage: Test
+  image: "python:3.11"
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: always
+
+test-3.12:
+  extends: .pytest
+  stage: Test
+  image: "python:3.12"
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: always
+
+test-3.13:
+  extends: .pytest
+  stage: Test
+  image: "python:3.13"
+
+test_report:
+  needs: ["test-3.13"]
+  stage: Publish test report
+  image:
+    name: oberonamsterdam/wkhtmltopdf
+    entrypoint: [""]
+  script:
+    - wkhtmltopdf --enable-local-file-access file:////builds/eco/tools/s2_rut_python/test_report/report.html test_report.pdf
+    - wkhtmltopdf --enable-local-file-access file:////builds/eco/tools/s2_rut_python/test_report/cov_report/index.html cov_report.pdf
+    - mv test_report.pdf ./quality_documentation/test_report.pdf
+    - mv cov_report.pdf ./quality_documentation/cov_report.pdf
+  artifacts:
+    paths:
+      - quality_documentation
+    expire_in: 1 hour
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: always
 
 ### Documentation ###
 
-# Upload the documentation to pages if it's a tagged commit
 pages:
   extends: .py_venv
-  stage: Publish Pages
+  stage: Readthedocs Documentation
   needs: []
   script:
     - sphinx-build docs public -b html
   artifacts:
     paths:
-    - public
+      - public
+    expire_in: 1 hour
   rules:
     - if: '$CI_COMMIT_TAG'
       when: always
-    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
       when: always
-  
-pdf_make:  
+
+pdf_make:
   extends: .py_venv
-  stage: Build Documentation
+  stage: Build latex Documentation
   needs: []
   script:
     - sphinx-build docs latex -b latex
-  
+    - cp -r latex ./quality_documentation/latex
   artifacts:
     paths:
-    - latex
+      - quality_documentation/latex
     expire_in: 1 hour
-    
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: always
+
 pdf_compile:
   needs: ["pdf_make"]
-  stage: Publish Documentation
-  image:  charlesbaynham/ctanfull
+  stage: Publish latex Documentation
+  image: charlesbaynham/ctanfull
   artifacts:
     paths:
-    - user_manual.pdf
+      - user_manual.pdf
     expose_as: "Manual"
     name: ${CI_COMMIT_REF_SLUG}_manual.pdf
   script:
-    - ls
     - cd quality_documentation/latex
     - make
     - cp user_manual.pdf ../../user_manual.pdf
@@ -167,38 +171,24 @@ pdf_compile:
     - if: '$CI_COMMIT_TAG'
       when: always
 
-# Copied contents of Gitlab's Code-Quality.gitlab-ci.yml so I can edit the rules
-
-code_quality:
-  stage: Static Analysis
-  needs: []
-  image: docker:19.03.5
-  allow_failure: true
-  services:
-    - docker:19.03.5-dind
-  variables:
-    DOCKER_DRIVER: overlay2
-    DOCKER_TLS_CERTDIR: ""
-    CODE_QUALITY_IMAGE: "registry.gitlab.com/gitlab-org/ci-cd/codequality:0.85.9"
-  script:
-    - |
-      if ! docker info &>/dev/null; then
-        if [ -z "$DOCKER_HOST" -a "$KUBERNETES_PORT" ]; then
-          export DOCKER_HOST='tcp://localhost:2375'
-        fi
-      fi
-    - docker pull --quiet "$CODE_QUALITY_IMAGE"
-    - docker run
-        --env SOURCE_CODE="$PWD"
-        --volume "$PWD":/code
-        --volume /var/run/docker.sock:/var/run/docker.sock
-        "$CODE_QUALITY_IMAGE" /code
+pdf_compile_all:
+  needs: ["pdf_make", "test_report"]
+  stage: Combine quality documentation
+  image: charlesbaynham/ctanfull
   artifacts:
-    reports:
-      codequality: gl-code-quality-report.json
-    expire_in: 1 week
-  dependencies: []
-  
+    paths:
+      - QualityDocumentation.pdf
+    expose_as: "QualityDocumentation"
+    name: ${CI_COMMIT_REF_SLUG}_QualityDocumentation.pdf
+  script:
+    - cd quality_documentation/latex
+    - ls
+    - cd ..
+    - cd uml
+    - for i in *.png; do echo "\includegraphics[width=\textwidth]{$i}">>uml.tex; done
+    - cd ..
+    - latexmk -e '$pdflatex=q/pdflatex %O -shell-escape %S/' -pdf
+    - cp QualityDocumentation.pdf ../.
   rules:
-    - if: '$CI_PROJECT_URL =~ /^.*gitlab.com.*/'
+    - if: '$CI_COMMIT_TAG'
       when: always
