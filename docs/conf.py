@@ -68,7 +68,10 @@ html_theme = "sphinx_book_theme"
 html_static_path = ["_static"]
 
 htmlhelp_basename = "s2_rut_pythondoc"
-
+# options below for sphinx_book_theme
+html_theme_options = {
+    "announcement": "<strong>Beta Version:</strong> This software is a beta version, results should be used with caution. Please share any feedback you have after using the tool.",
+}
 
 # -- Options for LaTeX output ------------------------------------------
 

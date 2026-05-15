@@ -7,7 +7,7 @@ name = "s2_rut_python"
 dynamic = ["version"]
 description = "Pure Python port of ESA's Sentinel-2 radiometric uncertainty tool"
 readme = "README.md"
-license = {file = "LICENSE"}
+license-files = ["LICENSE"]
 authors = [{name = "MetEOR Toolkit Team", email = "team@comet-toolkit.org"}]
 requires-python = ">=3.11"
 classifiers = [
@@ -49,6 +49,7 @@ docs = [
 ]
 
 [tool.setuptools.packages.find]
+include = ["eoio*"]
 exclude = ["tests", "tests.*"]
 
 [tool.setuptools_scm]

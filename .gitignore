@@ -122,3 +122,6 @@ ENV/
 
 # IDE settings
 .vscode/.git.old
+
+# Example output
+*.png
