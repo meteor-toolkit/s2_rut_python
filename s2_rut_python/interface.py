@@ -23,9 +23,7 @@ __author__ = [
 
 __all__ = ["S2RUTTool"]
 
-INPUT_CONTRIBUTORS = os.path.abspath(
-    os.path.join(THIS_DIRECTORY, "third-party", "Data", "unc_contributors.json")
-)
+INPUT_CONTRIBUTORS = os.path.abspath(os.path.join(THIS_DIRECTORY, "third-party", "Data", "unc_contributors.json"))
 MEAS_VAR_RES = {
     "B01": 60,
     "B02": 10,
