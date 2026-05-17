@@ -46,6 +46,7 @@ docs = [
     "sphinx_design",
     "sphinx_automodapi",
     "myst_parser",
+    "ipython"
 ]
 
 [tool.setuptools.packages.find]
