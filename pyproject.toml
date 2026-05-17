@@ -49,7 +49,7 @@ docs = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["eoio*"]
+include = ["s2_rut_python*"]
 exclude = ["tests", "tests.*"]
 
 [tool.setuptools_scm]
