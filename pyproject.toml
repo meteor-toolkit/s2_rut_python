@@ -53,12 +53,19 @@ docs = [
 include = ["s2_rut_python*"]
 exclude = ["tests", "tests.*"]
 
+[tool.setuptools.package-data]
+s2_rut_python = [
+    "third-party/Source/*.py",
+    "third-party/Data/*.json",
+]
+
 [tool.setuptools_scm]
 # version inferred from git tags (e.g. v0.1.0); no extra config needed
 
 [tool.mypy]
 allow_untyped_globals = true
 ignore_missing_imports = true
+exclude = ["s2_rut_python/third-party/"]
 
 [[tool.mypy.overrides]]
 module = ["s2_rut_python.tests.*"]
@@ -73,7 +80,7 @@ testpaths = [
 
 [tool.ruff]
 line-length = 120
-exclude = ["docs", "third-party", "examples"]
+exclude = ["docs", "s2_rut_python/third-party", "examples"]
 
 [tool.ruff.lint]
 extend-ignore = ["W291"]
