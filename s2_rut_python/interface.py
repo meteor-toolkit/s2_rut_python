@@ -461,7 +461,9 @@ class S2RUTTool:
                 elif path in ds.attrs["product_metadata"]:
                     metadata[key] = ds.attrs["product_metadata"][path]
                 else:
-                    raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'.")
+                    raise KeyError(
+                        f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'."
+                    )
 
         for key, path in VAR_MTD_MAP.items():
             try:
