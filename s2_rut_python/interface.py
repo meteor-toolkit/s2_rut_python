@@ -436,7 +436,7 @@ class S2RUTTool:
         # read required metadata from ds.attrs and fill the metadata dictionary
         METADATA_MAP = {
             "spacecraft": "platform",
-            "quant": "quantification_level",
+            "quant": ["quantification_level", "reflectance"],
             "Usun": "reflectance_conversion_u",
         }
         VAR_MTD_MAP = {
@@ -448,12 +448,20 @@ class S2RUTTool:
         }
 
         for key, path in METADATA_MAP.items():
-            if path in ds.attrs:
-                metadata[key] = ds.attrs[path]
-            elif path in ds.attrs["product_metadata"]:
-                metadata[key] = ds.attrs["product_metadata"][path]
+            if isinstance(path, list):
+                if path[0] in ds.attrs and path[1] in ds.attrs[path[0]]:
+                    metadata[key] = ds.attrs[path[0]][path[1]]
+                elif path[0] in ds.attrs["product_metadata"] and path[1] in ds.attrs["product_metadata"][path[0]]:
+                    metadata[key] = ds.attrs["product_metadata"][path[0]][path[1]]
+                else:
+                    raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes.")
             else:
-                raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'.")
+                if path in ds.attrs:
+                    metadata[key] = ds.attrs[path]
+                elif path in ds.attrs["product_metadata"]:
+                    metadata[key] = ds.attrs["product_metadata"][path]
+                else:
+                    raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'.")
 
         for key, path in VAR_MTD_MAP.items():
             try:
