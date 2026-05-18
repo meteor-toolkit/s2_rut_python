@@ -42,11 +42,11 @@ class TestS2RUTTool(unittest.TestCase):
             },
             attrs={
                 "platform": "Sentinel-2A",
-                "quantification_level": 10000,
+                "quantification_level": {"reflectance": 10000},
                 "reflectance_conversion_u": 0.05,
                 "product_metadata": {
                     "platform": "Sentinel-2A",
-                    "quantification_level": 10000,
+                    "quantification_level": {"reflectance": 10000},
                     "reflectance_conversion_u": 0.05,
                 },
             },
