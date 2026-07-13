@@ -5,7 +5,7 @@ Quickstart Guide
 ################
 
 Sentinel-2 Radiometric Uncertainty Tool
-+++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++++++++
 
 ``s2_rut_python`` provides a Python interface around ESA's Sentinel-2 Radiometric Uncertainty
 Tool (S2-RUT) to compute pixel-wise radiometric uncertainty from Sentinel-2 L1C reflectance data.

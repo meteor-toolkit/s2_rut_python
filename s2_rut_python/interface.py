@@ -83,26 +83,15 @@ U_CONTRIBUTIONS = [
     "geoloc",
 ]
 
-OUTPUT_CONTRIBUTIONS = {
-    "noise",
-    "sys",
-    "stray_xtalk",
-    "ds",
-    "gamma",
-    "adc",
-    "diff",
-    "ref_quant",
-    "geoloc",
-}
-
 
 class S2RUTTool:
     """
-    Class to run ESA's S2RUT tool for dataset to return dataset with uncertainty variables added using obsarray.
+    Runs ESA's S2-RUT tool on an xarray Dataset, adding per-pixel radiometric uncertainty
+    variables via the obsarray uncertainty accessor.
     """
 
     def __init__(self):
-        # Define the band names and index the band names
+        """Build the mapping from band name to its zero-based index, as expected by S2RUT_L1."""
         self.band_id = {band: index for index, band in enumerate(MEAS_VAR_RES.keys())}
 
     def set_contributor(self, rut, contributor, value):
@@ -413,13 +402,14 @@ class S2RUTTool:
             f"with resolution {get_value(ds[band].attrs, 'geometry_id')}."
         )
 
-    def return_metadata(self, ds: xr.Dataset, band_names: Sequence[str]) -> Union[Dict, KeyError]:
+    def return_metadata(self, ds: xr.Dataset, band_names: Sequence[str]) -> Dict[str, Any]:
         """
         Extract required metadata for uncertainty calculation from the dataset read in by eoio.
 
         :param ds: dataset read in by eoio containing the required metadata for uncertainty calculation
         :param band_names: list of band names for which to extract metadata
         :return: dictionary of metadata parameters required for uncertainty calculation
+        :raises KeyError: if a required metadata parameter is not found in the dataset attributes
         """
         metadata: Dict[str, Any] = {
             "spacecraft": None,

@@ -2,7 +2,8 @@
 s2_rut_python Documentation
 =========================================================
 
-A package containing tools to aid the filtering of EO data based on ancillary data such as land masks, ice masks or atmospheric properties
+A pure Python port of ESA's Sentinel-2 Radiometric Uncertainty Tool (S2-RUT), computing per-pixel
+radiometric uncertainties for Sentinel-2 Level 1C reflectance data.
 
 .. grid:: 2
    :gutter: 2
