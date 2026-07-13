@@ -162,24 +162,21 @@ class S2RUTTool:
         }
         return attrs
 
-    def _compute_grouped_uncertainty(self, component: str, unc_contributors: Dict) -> np.ndarray:
+    def _compute_grouped_uncertainty(self, component: str, unc_contributors: Dict) -> Optional[np.ndarray]:
         """
         Compute grouped uncertainty for a correlation component (systematic or random).
 
         :param component: 'systematic' or 'random'.
         :param unc_contributors: dictionary of per-contributor uncertainties.
-        :return: numpy array of grouped uncertainty values.
+        :return: numpy array of grouped uncertainty values, or None if no contributor in this
+                 component was selected (as opposed to a genuine zero uncertainty).
         """
-        return np.sqrt(
-            np.sum(
-                [
-                    unc_contributors[f"u_{contrib}"] ** 2
-                    for contrib in COMPONENTS[component]
-                    if f"u_{contrib}" in unc_contributors
-                ],
-                axis=0,
-            )
-        )
+        contribs = [
+            unc_contributors[f"u_{contrib}"] for contrib in COMPONENTS[component] if f"u_{contrib}" in unc_contributors
+        ]
+        if not contribs:
+            return None
+        return np.sqrt(np.sum([contrib**2 for contrib in contribs], axis=0))
 
     def _configure_contributors(self, rut, subset_unc: Optional[Sequence[str]]) -> None:
         """
@@ -230,9 +227,12 @@ class S2RUTTool:
         created_names = []
         for component in COMPONENTS:
             unc = self._compute_grouped_uncertainty(component, unc_contributors)
+            if unc is None:
+                # No contributor for this component was selected; do not fabricate a zero uncertainty.
+                continue
             err_corr_def = [
                 {
-                    "dim": [ds[band].dims],
+                    "dim": list(ds[band].dims),
                     "form": component,
                     "params": [],
                     "units": ds[band].attrs.get("units"),
@@ -280,7 +280,7 @@ class S2RUTTool:
 
             err_corr_def = [
                 {
-                    "dim": [ds[band].dims],
+                    "dim": list(ds[band].dims),
                     "form": component,
                     "params": [],
                     "units": ds[band].attrs.get("units"),
@@ -344,6 +344,10 @@ class S2RUTTool:
         for band in data_vars:  # type: ignore[union-attr]
             if band not in ds:
                 warnings.warn(f"{band} not in dataset; skipping uncertainty calculation.")
+                continue
+
+            if band not in self.band_id:
+                warnings.warn(f"{band} is not a recognized Sentinel-2 band; skipping uncertainty calculation.")
                 continue
 
             # Validate solar zenith angle availability and compute valid pixel mask.
@@ -437,19 +441,21 @@ class S2RUTTool:
             "offset": "radiometric_offset",
         }
 
+        product_metadata = ds.attrs.get("product_metadata", {})
+
         for key, path in METADATA_MAP.items():
             if isinstance(path, list):
                 if path[0] in ds.attrs and path[1] in ds.attrs[path[0]]:
                     metadata[key] = ds.attrs[path[0]][path[1]]
-                elif path[0] in ds.attrs["product_metadata"] and path[1] in ds.attrs["product_metadata"][path[0]]:
-                    metadata[key] = ds.attrs["product_metadata"][path[0]][path[1]]
+                elif path[0] in product_metadata and path[1] in product_metadata[path[0]]:
+                    metadata[key] = product_metadata[path[0]][path[1]]
                 else:
                     raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes.")
             else:
                 if path in ds.attrs:
                     metadata[key] = ds.attrs[path]
-                elif path in ds.attrs["product_metadata"]:
-                    metadata[key] = ds.attrs["product_metadata"][path]
+                elif path in product_metadata:
+                    metadata[key] = product_metadata[path]
                 else:
                     raise KeyError(
                         f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'."

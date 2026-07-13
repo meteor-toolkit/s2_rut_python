@@ -112,6 +112,13 @@ class TestS2RUTTool(unittest.TestCase):
         expected = np.sqrt((2**2) + (3**2)) * np.ones((2, 2))
         np.testing.assert_allclose(result, expected)
 
+    def test__compute_grouped_uncertainty_no_matching_contributors_returns_none(self):
+        # None of the given contributors belong to the "systematic" component, so it
+        # should not be reported as a (misleadingly precise) zero uncertainty.
+        unc_contributors = {"u_noise": np.ones((2, 2)) * 2}
+        result = self.tool._compute_grouped_uncertainty("systematic", unc_contributors)
+        self.assertIsNone(result)
+
     def test__configure_contributors_default(self):
         rut = mock.MagicMock()
         with mock.patch.object(self.tool, "set_contributor") as mocked:
@@ -155,6 +162,54 @@ class TestS2RUTTool(unittest.TestCase):
         self.assertIn("u_random_B01", names)
         self.assertTrue(np.isnan(ds.unc["B01"]["u_random_B01"].value.values[0, 1]))
         self.assertEqual(ds.unc["B01"]["u_random_B01"].value.attrs["units"], ds["B01"].attrs["units"])
+
+    def test__store_grouped_uncertainties_err_corr_form(self):
+        # Regression test: the "dim" entry of err_corr must be a list of dimension name
+        # strings (e.g. ["y_60m", "x_60m"]), not a list containing the dims tuple. The
+        # latter is silently unrecognized by obsarray, which then reclassifies every
+        # dimension as randomly correlated regardless of the declared "form".
+        ds = self.ds.copy(deep=True)
+        valid_mask = ds["B01"] != 0
+        unc_contributors = {
+            "u_sys": np.ones((2, 2)),
+            "u_noise": np.ones((2, 2)) * 2,
+        }
+
+        self.tool._store_grouped_uncertainties(ds, "B01", unc_contributors, valid_mask)
+
+        systematic_unc = ds.unc["B01"]["u_systematic_B01"]
+        self.assertTrue(systematic_unc.is_systematic)
+        self.assertFalse(systematic_unc.is_random)
+
+        random_unc = ds.unc["B01"]["u_random_B01"]
+        self.assertTrue(random_unc.is_random)
+        self.assertFalse(random_unc.is_systematic)
+
+    def test__store_grouped_uncertainties_omits_uncomputed_component(self):
+        # Only a random-component contributor is present; the systematic group should
+        # be omitted entirely rather than stored as a spurious zero uncertainty.
+        ds = self.ds.copy(deep=True)
+        valid_mask = ds["B01"] != 0
+        unc_contributors = {"u_noise": np.ones((2, 2)) * 2}
+
+        names = self.tool._store_grouped_uncertainties(ds, "B01", unc_contributors, valid_mask)
+
+        self.assertIn("u_random_B01", names)
+        self.assertNotIn("u_systematic_B01", names)
+        self.assertNotIn("u_systematic_B01", ds.data_vars)
+
+    def test__store_per_contributor_uncertainties_err_corr_form(self):
+        ds = self.ds.copy(deep=True)
+        valid_mask = ds["B01"] != 0
+        unc_contributors = {
+            "u_sys": np.ones((2, 2)),
+            "u_noise": np.ones((2, 2)) * 2,
+        }
+
+        self.tool._store_per_contributor_uncertainties(ds, "B01", unc_contributors, valid_mask)
+
+        self.assertTrue(ds.unc["B01"]["u_sys_B01"].is_systematic)
+        self.assertTrue(ds.unc["B01"]["u_noise_B01"].is_random)
 
     def test__store_per_contributor_uncertainties(self):
         ds = self.ds.copy(deep=True)
@@ -208,6 +263,18 @@ class TestS2RUTTool(unittest.TestCase):
         ds.attrs["product_metadata"].pop("platform", None)
         with self.assertRaises(KeyError):
             self.tool.return_metadata(ds, ["B01"])
+
+    def test_return_metadata_missing_product_metadata_key(self):
+        # Regression test: when "product_metadata" is absent from ds.attrs entirely (not
+        # just missing the requested key within it), the fallback lookup must not raise a
+        # bare, unhelpful `KeyError: 'product_metadata'` instead of the descriptive error.
+        ds = self.ds.copy(deep=True)
+        ds.attrs.pop("platform", None)
+        ds.attrs.pop("product_metadata", None)
+
+        with self.assertRaises(KeyError) as cm:
+            self.tool.return_metadata(ds, ["B01"])
+        self.assertIn("spacecraft", str(cm.exception))
 
     @mock.patch("s2_rut_python.interface.S2RUT_L1")
     def test_run_group_unc(self, mock_rut_cls):
@@ -269,6 +336,39 @@ class TestS2RUTTool(unittest.TestCase):
         sun_zenith_arg = call_args.args[4]
         self.assertEqual(len(sun_zenith_arg), len(MEAS_VAR_RES))
         self.assertIsNotNone(sun_zenith_arg[self.tool.band_id["B01"]])
+
+    @mock.patch("s2_rut_python.interface.S2RUT_L1")
+    def test_run_unrecognized_band_warns_and_skips(self, mock_rut_cls):
+        # Regression test: a dataset variable that isn't a recognized Sentinel-2 band name
+        # must be warned about and skipped, not fail with a raw, unhelpful KeyError from
+        # indexing self.band_id.
+        ds = self.ds.copy(deep=True)
+        ds["FOO"] = xr.DataArray(
+            np.array([[1.0, 2.0], [2.0, 3.0]]),
+            dims=("y_60m", "x_60m"),
+            attrs={
+                "units": "1",
+                "product_metadata": {
+                    "solar_irradiance": 1800.0,
+                    "noise_model_alpha": 0.4,
+                    "noise_model_beta": 0.01,
+                    "physical_gains": 1.2,
+                    "radiometric_offset": 0.0,
+                },
+            },
+        )
+
+        rut_instance = mock.MagicMock()
+        for contributor in U_CONTRIBUTIONS:
+            setattr(rut_instance, f"unc_select_{contributor}", True)
+        mock_rut_cls.return_value = rut_instance
+
+        with self.assertWarns(UserWarning) as cm:
+            out = self.tool.run(ds=ds, data_vars=["FOO"], group_unc=True)
+
+        self.assertIn("FOO", str(cm.warning))
+        rut_instance.unc_calculation_abs.assert_not_called()
+        self.assertNotIn("unc_comps", out["FOO"].attrs)
 
 
 if __name__ == "__main__":
