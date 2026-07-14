@@ -83,26 +83,15 @@ U_CONTRIBUTIONS = [
     "geoloc",
 ]
 
-OUTPUT_CONTRIBUTIONS = {
-    "noise",
-    "sys",
-    "stray_xtalk",
-    "ds",
-    "gamma",
-    "adc",
-    "diff",
-    "ref_quant",
-    "geoloc",
-}
-
 
 class S2RUTTool:
     """
-    Class to run ESA's S2RUT tool for dataset to return dataset with uncertainty variables added using obsarray.
+    Runs ESA's S2-RUT tool on an xarray Dataset, adding per-pixel radiometric uncertainty
+    variables via the obsarray uncertainty accessor.
     """
 
     def __init__(self):
-        # Define the band names and index the band names
+        """Build the mapping from band name to its zero-based index, as expected by S2RUT_L1."""
         self.band_id = {band: index for index, band in enumerate(MEAS_VAR_RES.keys())}
 
     def set_contributor(self, rut, contributor, value):
@@ -173,24 +162,21 @@ class S2RUTTool:
         }
         return attrs
 
-    def _compute_grouped_uncertainty(self, component: str, unc_contributors: Dict) -> np.ndarray:
+    def _compute_grouped_uncertainty(self, component: str, unc_contributors: Dict) -> Optional[np.ndarray]:
         """
         Compute grouped uncertainty for a correlation component (systematic or random).
 
         :param component: 'systematic' or 'random'.
         :param unc_contributors: dictionary of per-contributor uncertainties.
-        :return: numpy array of grouped uncertainty values.
+        :return: numpy array of grouped uncertainty values, or None if no contributor in this
+                 component was selected (as opposed to a genuine zero uncertainty).
         """
-        return np.sqrt(
-            np.sum(
-                [
-                    unc_contributors[f"u_{contrib}"] ** 2
-                    for contrib in COMPONENTS[component]
-                    if f"u_{contrib}" in unc_contributors
-                ],
-                axis=0,
-            )
-        )
+        contribs = [
+            unc_contributors[f"u_{contrib}"] for contrib in COMPONENTS[component] if f"u_{contrib}" in unc_contributors
+        ]
+        if not contribs:
+            return None
+        return np.sqrt(np.sum([contrib**2 for contrib in contribs], axis=0))
 
     def _configure_contributors(self, rut, subset_unc: Optional[Sequence[str]]) -> None:
         """
@@ -241,9 +227,12 @@ class S2RUTTool:
         created_names = []
         for component in COMPONENTS:
             unc = self._compute_grouped_uncertainty(component, unc_contributors)
+            if unc is None:
+                # No contributor for this component was selected; do not fabricate a zero uncertainty.
+                continue
             err_corr_def = [
                 {
-                    "dim": [ds[band].dims],
+                    "dim": list(ds[band].dims),
                     "form": component,
                     "params": [],
                     "units": ds[band].attrs.get("units"),
@@ -291,7 +280,7 @@ class S2RUTTool:
 
             err_corr_def = [
                 {
-                    "dim": [ds[band].dims],
+                    "dim": list(ds[band].dims),
                     "form": component,
                     "params": [],
                     "units": ds[band].attrs.get("units"),
@@ -357,6 +346,10 @@ class S2RUTTool:
                 warnings.warn(f"{band} not in dataset; skipping uncertainty calculation.")
                 continue
 
+            if band not in self.band_id:
+                warnings.warn(f"{band} is not a recognized Sentinel-2 band; skipping uncertainty calculation.")
+                continue
+
             # Validate solar zenith angle availability and compute valid pixel mask.
             solar_var = self.return_sza_var(ds, band)
             valid_mask = ds[band] != 0
@@ -413,13 +406,14 @@ class S2RUTTool:
             f"with resolution {get_value(ds[band].attrs, 'geometry_id')}."
         )
 
-    def return_metadata(self, ds: xr.Dataset, band_names: Sequence[str]) -> Union[Dict, KeyError]:
+    def return_metadata(self, ds: xr.Dataset, band_names: Sequence[str]) -> Dict[str, Any]:
         """
         Extract required metadata for uncertainty calculation from the dataset read in by eoio.
 
         :param ds: dataset read in by eoio containing the required metadata for uncertainty calculation
         :param band_names: list of band names for which to extract metadata
         :return: dictionary of metadata parameters required for uncertainty calculation
+        :raises KeyError: if a required metadata parameter is not found in the dataset attributes
         """
         metadata: Dict[str, Any] = {
             "spacecraft": None,
@@ -447,19 +441,21 @@ class S2RUTTool:
             "offset": "radiometric_offset",
         }
 
+        product_metadata = ds.attrs.get("product_metadata", {})
+
         for key, path in METADATA_MAP.items():
             if isinstance(path, list):
                 if path[0] in ds.attrs and path[1] in ds.attrs[path[0]]:
                     metadata[key] = ds.attrs[path[0]][path[1]]
-                elif path[0] in ds.attrs["product_metadata"] and path[1] in ds.attrs["product_metadata"][path[0]]:
-                    metadata[key] = ds.attrs["product_metadata"][path[0]][path[1]]
+                elif path[0] in product_metadata and path[1] in product_metadata[path[0]]:
+                    metadata[key] = product_metadata[path[0]][path[1]]
                 else:
                     raise KeyError(f"Required metadata parameter '{key}' not found in dataset attributes.")
             else:
                 if path in ds.attrs:
                     metadata[key] = ds.attrs[path]
-                elif path in ds.attrs["product_metadata"]:
-                    metadata[key] = ds.attrs["product_metadata"][path]
+                elif path in product_metadata:
+                    metadata[key] = product_metadata[path]
                 else:
                     raise KeyError(
                         f"Required metadata parameter '{key}' not found in dataset attributes at path '{path}'."
